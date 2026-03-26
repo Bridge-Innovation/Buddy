@@ -1,0 +1,7 @@
+name = "buddy-presence"
+main = "src/index.js"
+compatibility_date = "2024-12-01"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "9bd5a46e2d184b6da59c56e85297f74f"
