@@ -6,7 +6,10 @@ final class CompanionPanel: NSPanel {
     private static let positionYKey = "CompanionPanelY"
 
     init() {
-        let origin = Self.savedOrigin ?? CGPoint(x: 200, y: 200)
+        let defaultOrigin = AppSettings.isTestUser2
+            ? CGPoint(x: 500, y: 200)
+            : CGPoint(x: 200, y: 200)
+        let origin = Self.savedOrigin ?? defaultOrigin
 
         super.init(
             contentRect: NSRect(origin: origin, size: CGSize(width: 192, height: 192)),
@@ -52,12 +55,12 @@ final class CompanionPanel: NSPanel {
 
     @objc private func windowDidMove(_ notification: Notification) {
         let origin = frame.origin
-        UserDefaults.standard.set(Double(origin.x), forKey: Self.positionXKey)
-        UserDefaults.standard.set(Double(origin.y), forKey: Self.positionYKey)
+        AppSettings.defaults.set(Double(origin.x), forKey: Self.positionXKey)
+        AppSettings.defaults.set(Double(origin.y), forKey: Self.positionYKey)
     }
 
     private static var savedOrigin: CGPoint? {
-        let defaults = UserDefaults.standard
+        let defaults = AppSettings.defaults
         guard defaults.object(forKey: positionXKey) != nil else { return nil }
         return CGPoint(
             x: defaults.double(forKey: positionXKey),

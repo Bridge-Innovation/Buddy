@@ -9,12 +9,27 @@ struct FriendStatus: Codable, Identifiable {
     let activityState: String
     let isAvailable: Bool
     let lastSeen: Double
+    let facetimeContact: String?
 
     var id: String { userId }
 
     var state: BuddyState {
         BuddyState(rawValue: activityState.capitalized) ?? .active
     }
+
+    var hasFacetime: Bool {
+        guard let contact = facetimeContact else { return false }
+        return !contact.isEmpty
+    }
+}
+
+struct ChatMessage: Codable, Identifiable {
+    let id: String
+    let fromUserId: String
+    let fromDisplayName: String
+    let toUserId: String
+    let message: String
+    let timestamp: Double
 }
 
 struct BuddyEvent: Codable, Identifiable {
@@ -36,6 +51,13 @@ final class PresenceManager: ObservableObject {
     @Published private(set) var friendCode: String?
     @Published private(set) var friends: [FriendStatus] = []
     @Published private(set) var pendingEvents: [BuddyEvent] = []
+    @Published private(set) var incomingMessages: [ChatMessage] = []
+    @Published var facetimeContact: String {
+        didSet {
+            AppSettings.defaults.set(facetimeContact, forKey: Self.facetimeContactKey)
+            syncFacetimeContact()
+        }
+    }
 
     private let baseURL: URL
     private var statusTimer: Timer?
@@ -43,16 +65,18 @@ final class PresenceManager: ObservableObject {
 
     private static let userIdKey = "BuddyUserId"
     private static let friendCodeKey = "BuddyFriendCode"
+    private static let facetimeContactKey = "BuddyFacetimeContact"
 
     private init() {
         // Configurable API base URL
-        let urlString = UserDefaults.standard.string(forKey: "BuddyAPIBaseURL")
+        let urlString = AppSettings.defaults.string(forKey: "BuddyAPIBaseURL")
             ?? "https://buddy-presence.sarahgilmore.workers.dev"
         self.baseURL = URL(string: urlString)!
 
         // Restore saved credentials
-        self.userId = UserDefaults.standard.string(forKey: Self.userIdKey)
-        self.friendCode = UserDefaults.standard.string(forKey: Self.friendCodeKey)
+        self.userId = AppSettings.defaults.string(forKey: Self.userIdKey)
+        self.friendCode = AppSettings.defaults.string(forKey: Self.friendCodeKey)
+        self.facetimeContact = AppSettings.defaults.string(forKey: Self.facetimeContactKey) ?? ""
     }
 
     // MARK: - Lifecycle
@@ -84,21 +108,22 @@ final class PresenceManager: ObservableObject {
             let displayName: String
         }
 
+        let name = AppSettings.isTestUser2 ? "Test Owl 2" : "Buddy User"
         guard let response: RegisterResponse = await post("/register", body: [
-            "displayName": "Buddy User",
+            "displayName": name,
         ]) else { return }
 
         userId = response.userId
         friendCode = response.friendCode
-        UserDefaults.standard.set(response.userId, forKey: Self.userIdKey)
-        UserDefaults.standard.set(response.friendCode, forKey: Self.friendCodeKey)
+        AppSettings.defaults.set(response.userId, forKey: Self.userIdKey)
+        AppSettings.defaults.set(response.friendCode, forKey: Self.friendCodeKey)
     }
 
     // MARK: - Status updates (every 30s)
 
     private func startStatusUpdates() {
         sendStatus()
-        statusTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+        statusTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.sendStatus() }
         }
     }
@@ -128,7 +153,7 @@ final class PresenceManager: ObservableObject {
 
     private func startPolling() {
         pollFriendsAndEvents()
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.pollFriendsAndEvents() }
         }
     }
@@ -139,13 +164,23 @@ final class PresenceManager: ObservableObject {
         Task {
             async let friendsResult = get("/friends?userId=\(userId)", as: FriendsResponse.self)
             async let eventsResult = get("/events?userId=\(userId)", as: EventsResponse.self)
+            async let messagesResult = get("/messages?userId=\(userId)", as: MessagesResponse.self)
 
             if let fr = await friendsResult {
                 friends = fr.friends
+                if !fr.friends.isEmpty {
+                    print("[Buddy] Friends online: \(fr.friends.map { "\($0.displayName) (\($0.userId.prefix(8))...)" }.joined(separator: ", "))")
+                }
             }
             if let ev = await eventsResult {
                 if !ev.events.isEmpty {
+                    print("[Buddy] Received \(ev.events.count) event(s): \(ev.events.map { "\($0.eventType) from \($0.fromDisplayName)" }.joined(separator: ", "))")
                     pendingEvents.append(contentsOf: ev.events)
+                }
+            }
+            if let msgs = await messagesResult {
+                if !msgs.messages.isEmpty {
+                    incomingMessages.append(contentsOf: msgs.messages)
                 }
             }
         }
@@ -192,8 +227,44 @@ final class PresenceManager: ObservableObject {
         ])
     }
 
+    func sendCallRequest(to friendId: String) async {
+        guard let userId else { return }
+
+        let _: EmptyResponse? = await post("/events/send", body: [
+            "fromUserId": userId,
+            "toUserId": friendId,
+            "eventType": "call",
+        ])
+    }
+
     func consumeEvent(_ event: BuddyEvent) {
         pendingEvents.removeAll { $0.id == event.id }
+    }
+
+    func sendMessage(to friendId: String, message: String) async {
+        guard let userId else { return }
+
+        let _: EmptyResponse? = await post("/messages/send", body: [
+            "fromUserId": userId,
+            "toUserId": friendId,
+            "message": message,
+        ])
+    }
+
+    func consumeMessages(from friendId: String) -> [ChatMessage] {
+        let msgs = incomingMessages.filter { $0.fromUserId == friendId }
+        incomingMessages.removeAll { $0.fromUserId == friendId }
+        return msgs
+    }
+
+    private func syncFacetimeContact() {
+        guard let userId else { return }
+        Task {
+            let _: EmptyResponse? = await post("/profile/update", body: [
+                "userId": userId,
+                "facetimeContact": facetimeContact,
+            ])
+        }
     }
 
     // MARK: - Networking
@@ -236,6 +307,10 @@ private struct FriendsResponse: Codable {
 
 private struct EventsResponse: Codable {
     let events: [BuddyEvent]
+}
+
+private struct MessagesResponse: Codable {
+    let messages: [ChatMessage]
 }
 
 private struct EmptyResponse: Codable {

@@ -4,9 +4,9 @@ import Combine
 
 @MainActor
 final class FriendPanelManager {
-    private var panels: [String: NSPanel] = [:] // friendId → panel
+    private var panels: [String: FriendPanel] = [:]
     private var cancellable: AnyCancellable?
-    private let panelSize = CGSize(width: 150, height: 170)
+    private let panelSize = CGSize(width: 140, height: 160)
 
     func start() {
         cancellable = PresenceManager.shared.$friends
@@ -25,50 +25,73 @@ final class FriendPanelManager {
     }
 
     private func syncPanels(with friends: [FriendStatus]) {
+        print("[FPM] syncPanels called with \(friends.count) friends, existing panels: \(panels.count)")
         let currentFriendIds = Set(friends.map(\.userId))
         let existingIds = Set(panels.keys)
 
-        // Remove panels for friends who went offline
         for id in existingIds.subtracting(currentFriendIds) {
-            panels[id]?.orderOut(nil)
-            panels.removeValue(forKey: id)
+            if let panel = panels[id] {
+                animateOut(panel) { [weak self] in
+                    self?.panels.removeValue(forKey: id)
+                }
+            }
         }
 
-        // Add panels for new online friends
         for friend in friends where !existingIds.contains(friend.userId) {
+            print("[FPM] Creating panel for \(friend.displayName)")
             let panel = createFriendPanel(for: friend)
             panels[friend.userId] = panel
-            panel.orderFront(nil)
-        }
-
-        // Update existing panels with new friend data
-        for friend in friends {
-            if let panel = panels[friend.userId] {
-                updatePanel(panel, with: friend)
-            }
+            showPanel(panel)
         }
     }
 
-    private func createFriendPanel(for friend: FriendStatus) -> NSPanel {
+    // MARK: - Show panel (animation disabled for debugging)
+
+    private func showPanel(_ panel: NSPanel) {
+        print("[FPM] showPanel: NSScreen.main?.frame = \(String(describing: NSScreen.main?.frame))")
+        let finalOrigin: CGPoint
+        if AppSettings.isTestUser2 {
+            finalOrigin = CGPoint(x: 200, y: 500)
+        } else {
+            finalOrigin = CGPoint(x: 200, y: 200)
+        }
+        print("[FPM] showPanel: placing panel at \(finalOrigin)")
+        panel.setFrameOrigin(finalOrigin)
+        panel.alphaValue = 1
+        panel.orderFront(nil)
+        panel.setFrameOrigin(finalOrigin)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            panel.setFrameOrigin(finalOrigin)
+            print("[FPM] showPanel: after delay, panel.frame = \(panel.frame)")
+        }
+    }
+
+    private func animateOut(_ panel: NSPanel, completion: @escaping () -> Void) {
+        guard let screen = NSScreen.main else {
+            panel.orderOut(nil)
+            completion()
+            return
+        }
+
+        let offScreenX = screen.frame.maxX + 20
+        let origin = panel.frame.origin
+
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.5
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            panel.animator().setFrameOrigin(CGPoint(x: offScreenX, y: origin.y))
+            panel.animator().alphaValue = 0
+        }, completionHandler: {
+            panel.orderOut(nil)
+            completion()
+        })
+    }
+
+    // MARK: - Panel creation
+
+    private func createFriendPanel(for friend: FriendStatus) -> FriendPanel {
         let origin = positionForNewPanel()
-
-        let panel = NSPanel(
-            contentRect: NSRect(origin: origin, size: panelSize),
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-
-        panel.isFloatingPanel = true
-        panel.level = .floating
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = false
-        panel.isMovableByWindowBackground = true
-
-        // Accept clicks for double-tap wave gesture
-        panel.setValue(true, forKey: "canBecomeKey")
+        let panel = FriendPanel(origin: origin, size: panelSize, friendId: friend.userId)
 
         let theme = CharacterType.from(serverValue: friend.characterType).theme
         let hostingView = NSHostingView(rootView:
@@ -80,15 +103,6 @@ final class FriendPanelManager {
         return panel
     }
 
-    private func updatePanel(_ panel: NSPanel, with friend: FriendStatus) {
-        let theme = CharacterType.from(serverValue: friend.characterType).theme
-        let hostingView = NSHostingView(rootView:
-            FriendAvatarView(friend: friend, theme: theme)
-        )
-        hostingView.layer?.backgroundColor = .clear
-        panel.contentView = hostingView
-    }
-
     private func positionForNewPanel() -> CGPoint {
         guard let screen = NSScreen.main else {
             return CGPoint(x: 400, y: 100)
@@ -97,12 +111,60 @@ final class FriendPanelManager {
         let screenFrame = screen.visibleFrame
         let existingCount = panels.count
         let spacing: CGFloat = 20
-        let startX = screenFrame.maxX - panelSize.width - 40
 
-        // Stack along the bottom-right, moving left for each additional friend
-        let x = startX - CGFloat(existingCount) * (panelSize.width + spacing)
+        let x: CGFloat
+        if AppSettings.isTestUser2 {
+            x = screenFrame.minX + 40 + CGFloat(existingCount) * (panelSize.width + spacing)
+        } else {
+            let startX = screenFrame.maxX - panelSize.width - 40
+            x = startX - CGFloat(existingCount) * (panelSize.width + spacing)
+        }
         let y = screenFrame.minY + 20
 
         return CGPoint(x: x, y: y)
+    }
+}
+
+// MARK: - Friend Panel (mirrors CompanionPanel's event handling exactly)
+
+final class FriendPanel: NSPanel {
+    let friendId: String
+
+    init(origin: CGPoint, size: CGSize, friendId: String) {
+        self.friendId = friendId
+        super.init(
+            contentRect: NSRect(origin: origin, size: size),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+
+        isFloatingPanel = true
+        level = .floating
+        collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
+        isOpaque = false
+        backgroundColor = .clear
+        hasShadow = false
+        isMovableByWindowBackground = true
+    }
+
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+
+    override func setFrameOrigin(_ point: NSPoint) {
+        print("[FriendPanel] setFrameOrigin(\(point)) called from:", Thread.callStackSymbols.prefix(6).joined(separator: "\n  "))
+        super.setFrameOrigin(point)
+    }
+
+    override func setFrame(_ frameRect: NSRect, display displayFlag: Bool) {
+        print("[FriendPanel] setFrame(\(frameRect)) called from:", Thread.callStackSymbols.prefix(6).joined(separator: "\n  "))
+        super.setFrame(frameRect, display: displayFlag)
+    }
+
+    override func becomeKey() {
+        super.becomeKey()
+        DispatchQueue.main.async { [weak self] in
+            self?.resignKey()
+        }
     }
 }

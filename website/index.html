@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buddy — Your Desktop Coworking Companion</title>
+    <meta name="description" content="A little owl that lives on your macOS desktop. See when friends are working, wave at each other, and feel less alone.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Caveat:wght@600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --cream: #FFF8F0;
+            --warm-white: #FFFDFB;
+            --peach: #FFE8D6;
+            --light-peach: #FFF1E6;
+            --brown: #8B6F5E;
+            --dark-brown: #5C4033;
+            --accent: #E8985E;
+            --accent-hover: #D4824A;
+            --soft-green: #B8D8BA;
+            --soft-blue: #A8C8E8;
+            --soft-purple: #C8B8D8;
+            --soft-pink: #F0C8C8;
+            --text: #4A3728;
+            --text-light: #8B7B6E;
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: var(--cream);
+            color: var(--text);
+            overflow-x: hidden;
+        }
+
+        /* Floating particles */
+        .particles {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.15;
+            animation: float linear infinite;
+        }
+        @keyframes float {
+            0% { transform: translateY(100vh) rotate(0deg); }
+            100% { transform: translateY(-100px) rotate(360deg); }
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            padding: 1.2rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            background: rgba(255, 248, 240, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(139, 111, 94, 0.08);
+        }
+        .nav-logo {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: var(--dark-brown);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .nav-logo img {
+            width: 28px;
+            height: 28px;
+        }
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+        .nav-links a {
+            color: var(--brown);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: color 0.2s;
+        }
+        .nav-links a:hover { color: var(--dark-brown); }
+
+        /* Hero */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 8rem 2rem 4rem;
+            position: relative;
+            z-index: 1;
+        }
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: var(--peach);
+            color: var(--brown);
+            padding: 0.4rem 1rem;
+            border-radius: 100px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+        }
+        .hero-badge .dot {
+            width: 6px;
+            height: 6px;
+            background: var(--soft-green);
+            border-radius: 50%;
+            display: inline-block;
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.3); }
+        }
+
+        .owl-hero {
+            position: relative;
+            width: 220px;
+            height: 220px;
+            margin-bottom: 2rem;
+        }
+        .owl-hero img {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            transition: opacity 0.15s ease;
+        }
+        .owl-hero img.hidden { opacity: 0; }
+        .owl-hero img.visible { opacity: 1; }
+        .owl-shadow {
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 16px;
+            background: radial-gradient(ellipse, rgba(92, 64, 51, 0.1) 0%, transparent 70%);
+        }
+
+        .speech-bubble {
+            position: absolute;
+            top: -10px;
+            right: -60px;
+            background: white;
+            border: 2px solid var(--peach);
+            border-radius: 16px 16px 16px 4px;
+            padding: 0.5rem 0.8rem;
+            font-family: 'Caveat', cursive;
+            font-size: 1.1rem;
+            color: var(--brown);
+            box-shadow: 0 2px 12px rgba(139, 111, 94, 0.1);
+            opacity: 0;
+            transform: translateY(4px);
+            animation: bubble-in 0.4s ease forwards;
+            animation-delay: 1s;
+            white-space: nowrap;
+        }
+        @keyframes bubble-in {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 800;
+            line-height: 1.15;
+            color: var(--dark-brown);
+            margin-bottom: 1rem;
+            max-width: 600px;
+        }
+        h1 .wave-emoji {
+            display: inline-block;
+            animation: wave 1.5s ease-in-out infinite;
+            transform-origin: 70% 70%;
+        }
+        @keyframes wave {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(20deg); }
+            50% { transform: rotate(-10deg); }
+            75% { transform: rotate(15deg); }
+        }
+
+        .hero-sub {
+            font-size: 1.2rem;
+            color: var(--text-light);
+            max-width: 480px;
+            line-height: 1.7;
+            margin-bottom: 2.5rem;
+        }
+
+        .cta-group {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--accent);
+            color: white;
+            padding: 0.9rem 2rem;
+            border-radius: 100px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 1.05rem;
+            transition: all 0.2s;
+            box-shadow: 0 4px 16px rgba(232, 152, 94, 0.3);
+        }
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 24px rgba(232, 152, 94, 0.4);
+        }
+        .btn-secondary {
+            color: var(--brown);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            padding: 0.9rem 1.5rem;
+            border-radius: 100px;
+            border: 2px solid var(--peach);
+            transition: all 0.2s;
+        }
+        .btn-secondary:hover {
+            border-color: var(--accent);
+            color: var(--dark-brown);
+        }
+
+        .platform-note {
+            margin-top: 1rem;
+            font-size: 0.82rem;
+            color: var(--text-light);
+        }
+
+        /* Desktop mockup section */
+        .mockup-section {
+            padding: 2rem 2rem 6rem;
+            position: relative;
+            z-index: 1;
+        }
+        .desktop-mockup {
+            max-width: 800px;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #E8DDD4 0%, #D4C8BB 100%);
+            border-radius: 16px;
+            padding: 2.5rem;
+            box-shadow: 0 20px 60px rgba(92, 64, 51, 0.12);
+            position: relative;
+            overflow: hidden;
+        }
+        .mockup-dots {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 1.5rem;
+        }
+        .mockup-dots span {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .mockup-dots span:nth-child(1) { background: #F0A0A0; }
+        .mockup-dots span:nth-child(2) { background: #F0D0A0; }
+        .mockup-dots span:nth-child(3) { background: #A0D0A0; }
+        .mockup-desktop {
+            background: linear-gradient(180deg, #C8B8A8 0%, #B8A898 100%);
+            border-radius: 8px;
+            height: 340px;
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 1rem;
+            overflow: hidden;
+        }
+        .mockup-desktop::before {
+            content: '';
+            position: absolute;
+            top: 12px; left: 12px;
+            width: 100px; height: 14px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 4px;
+        }
+        .mockup-desktop::after {
+            content: '';
+            position: absolute;
+            top: 12px; left: 120px;
+            width: 60px; height: 14px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+        }
+        .mockup-owl {
+            width: 80px;
+            position: absolute;
+        }
+        .mockup-owl.owl-me {
+            bottom: 16px;
+            right: 40px;
+            animation: mockup-bob 3s ease-in-out infinite;
+        }
+        .mockup-owl.owl-friend {
+            bottom: 16px;
+            left: 60px;
+            animation: mockup-bob 3s ease-in-out infinite 0.5s;
+        }
+        @keyframes mockup-bob {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+        .mockup-chat {
+            position: absolute;
+            bottom: 100px;
+            left: 100px;
+            background: white;
+            border-radius: 12px 12px 12px 4px;
+            padding: 0.5rem 0.75rem;
+            font-family: 'Caveat', cursive;
+            font-size: 0.95rem;
+            color: var(--brown);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .mockup-chat-2 {
+            position: absolute;
+            bottom: 100px;
+            right: 80px;
+            background: var(--accent);
+            color: white;
+            border-radius: 12px 12px 4px 12px;
+            padding: 0.5rem 0.75rem;
+            font-family: 'Caveat', cursive;
+            font-size: 0.95rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .mockup-status {
+            position: absolute;
+            top: 40px;
+            right: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: rgba(255,255,255,0.25);
+            backdrop-filter: blur(8px);
+            padding: 4px 10px;
+            border-radius: 100px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--dark-brown);
+        }
+        .status-pill .s-dot {
+            width: 5px; height: 5px;
+            border-radius: 50%;
+        }
+        .status-pill .s-dot.online { background: #6DBF6D; }
+        .status-pill .s-dot.idle { background: #E8C85E; }
+
+        /* Features */
+        .features {
+            padding: 4rem 2rem 6rem;
+            position: relative;
+            z-index: 1;
+        }
+        .features-header {
+            text-align: center;
+            margin-bottom: 3.5rem;
+        }
+        .features-header h2 {
+            font-size: clamp(1.8rem, 4vw, 2.5rem);
+            font-weight: 800;
+            color: var(--dark-brown);
+            margin-bottom: 0.5rem;
+        }
+        .features-header p {
+            color: var(--text-light);
+            font-size: 1.1rem;
+        }
+        .features-grid {
+            max-width: 900px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+        }
+        .feature-card {
+            background: var(--warm-white);
+            border: 1px solid rgba(139, 111, 94, 0.08);
+            border-radius: 20px;
+            padding: 2rem;
+            transition: all 0.25s ease;
+        }
+        .feature-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 32px rgba(92, 64, 51, 0.08);
+        }
+        .feature-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            margin-bottom: 1rem;
+        }
+        .feature-card:nth-child(1) .feature-icon { background: var(--soft-green); }
+        .feature-card:nth-child(2) .feature-icon { background: var(--soft-blue); }
+        .feature-card:nth-child(3) .feature-icon { background: var(--soft-purple); }
+        .feature-card:nth-child(4) .feature-icon { background: var(--soft-pink); }
+
+        .feature-card h3 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--dark-brown);
+            margin-bottom: 0.5rem;
+        }
+        .feature-card p {
+            color: var(--text-light);
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+
+        /* How it works */
+        .how-it-works {
+            padding: 4rem 2rem 6rem;
+            background: var(--light-peach);
+            position: relative;
+            z-index: 1;
+        }
+        .how-it-works h2 {
+            text-align: center;
+            font-size: clamp(1.8rem, 4vw, 2.5rem);
+            font-weight: 800;
+            color: var(--dark-brown);
+            margin-bottom: 3rem;
+        }
+        .steps {
+            max-width: 700px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+        .step {
+            display: flex;
+            align-items: flex-start;
+            gap: 1.5rem;
+        }
+        .step-num {
+            flex-shrink: 0;
+            width: 44px;
+            height: 44px;
+            background: var(--accent);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.1rem;
+        }
+        .step-content h3 {
+            font-weight: 700;
+            color: var(--dark-brown);
+            margin-bottom: 0.25rem;
+        }
+        .step-content p {
+            color: var(--text-light);
+            line-height: 1.6;
+        }
+
+        /* Footer */
+        footer {
+            padding: 3rem 2rem;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+            border-top: 1px solid rgba(139, 111, 94, 0.08);
+        }
+        footer .footer-owl {
+            width: 48px;
+            margin-bottom: 1rem;
+            opacity: 0.6;
+        }
+        footer p {
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+        footer a {
+            color: var(--brown);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        footer a:hover { color: var(--dark-brown); }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .features-grid { grid-template-columns: 1fr; }
+            .owl-hero { width: 160px; height: 160px; }
+            .speech-bubble { right: -40px; font-size: 0.95rem; }
+            .desktop-mockup { padding: 1.5rem; }
+            .mockup-desktop { height: 240px; }
+            .mockup-chat, .mockup-chat-2 { font-size: 0.8rem; }
+            nav { padding: 1rem 1.2rem; }
+            .step { gap: 1rem; }
+        }
+
+        /* Scroll animations */
+        .fade-up {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        .fade-up.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="particles" id="particles"></div>
+
+    <nav>
+        <div class="nav-logo">
+            <img src="images/owl_active_open.png" alt="Buddy">
+            Buddy
+        </div>
+        <div class="nav-links">
+            <a href="#features">Features</a>
+            <a href="https://github.com/anthropics/buddy/releases" class="btn-primary" style="padding: 0.5rem 1.2rem; font-size: 0.9rem; box-shadow: none;">Download</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-badge">
+            <span class="dot"></span>
+            2 friends online
+        </div>
+
+        <div class="owl-hero" id="owl-hero">
+            <img src="images/owl_active_open.png" alt="Buddy owl" class="visible" id="owl-frame">
+            <div class="owl-shadow"></div>
+            <div class="speech-bubble">hoo hoo! :)</div>
+        </div>
+
+        <h1>Never work alone again <span class="wave-emoji">&#x1F44B;</span></h1>
+        <p class="hero-sub">
+            A little owl that lives on your desktop. It sees when your friends are working and lets you cowork together — no meeting links, no scheduling, just presence.
+        </p>
+
+        <div class="cta-group">
+            <a href="https://github.com/anthropics/buddy/releases" class="btn-primary">
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 3v12M7 12l5 5 5-5"/></svg>
+                Download for Mac
+            </a>
+            <a href="https://github.com/anthropics/buddy" class="btn-secondary">View on GitHub</a>
+        </div>
+        <p class="platform-note">Requires macOS 14 or later</p>
+    </section>
+
+    <section class="mockup-section">
+        <div class="desktop-mockup fade-up">
+            <div class="mockup-dots">
+                <span></span><span></span><span></span>
+            </div>
+            <div class="mockup-desktop">
+                <div class="mockup-status">
+                    <div class="status-pill"><span class="s-dot online"></span> Sarah</div>
+                    <div class="status-pill"><span class="s-dot idle"></span> Tyler</div>
+                </div>
+                <div class="mockup-chat">hey, deep work sesh? :)</div>
+                <div class="mockup-chat-2">yes! let's go</div>
+                <img src="images/owl_wave_high.png" alt="Friend's owl" class="mockup-owl owl-friend">
+                <img src="images/owl_active_open.png" alt="Your owl" class="mockup-owl owl-me">
+            </div>
+        </div>
+    </section>
+
+    <section class="features" id="features">
+        <div class="features-header fade-up">
+            <h2>Coworking, but make it cozy</h2>
+            <p>Everything you need to feel connected, nothing you don't.</p>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card fade-up">
+                <div class="feature-icon">&#x1F7E2;</div>
+                <h3>Presence awareness</h3>
+                <p>Your owl is awake when you're working, drowsy when you're idle, and asleep when you're away. Friends see your state at a glance.</p>
+            </div>
+            <div class="feature-card fade-up">
+                <div class="feature-icon">&#x1F989;</div>
+                <h3>Friends on your desktop</h3>
+                <p>When a friend comes online, their owl appears right on your screen. It's like glancing across a shared office.</p>
+            </div>
+            <div class="feature-card fade-up">
+                <div class="feature-icon">&#x1F44B;</div>
+                <h3>Wave and chat</h3>
+                <p>Send a quick wave to say hi, or chat through cute speech bubbles. Low-pressure, high-warmth communication.</p>
+            </div>
+            <div class="feature-card fade-up">
+                <div class="feature-icon">&#x1F4DE;</div>
+                <h3>Jump on a call</h3>
+                <p>When a wave turns into a conversation, hop into FaceTime with one click. No links, no scheduling, just "hey, got a sec?"</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="how-it-works">
+        <h2 class="fade-up">Get started in 30 seconds</h2>
+        <div class="steps">
+            <div class="step fade-up">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                    <h3>Download Buddy</h3>
+                    <p>Grab the app, drag it to Applications. That's it, no account needed.</p>
+                </div>
+            </div>
+            <div class="step fade-up">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                    <h3>Add your friends</h3>
+                    <p>Share your invite code or paste theirs. Your owl flock grows one friend at a time.</p>
+                </div>
+            </div>
+            <div class="step fade-up">
+                <div class="step-num">3</div>
+                <div class="step-content">
+                    <h3>Just work</h3>
+                    <p>Buddy does the rest. You'll see friends appear when they're around, disappear when they're not. It's ambient, not annoying.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <img src="images/owl_asleep_in.png" alt="Sleeping Buddy" class="footer-owl">
+        <p>Made by <a href="#">Bridge Innovation</a></p>
+        <p style="margin-top: 0.4rem; font-size: 0.8rem;">Buddy is sleeping... come back when you're ready to cowork.</p>
+    </footer>
+
+    <script>
+        // Owl blinking animation
+        const owlFrame = document.getElementById('owl-frame');
+        const frames = [
+            'images/owl_active_open.png',
+            'images/owl_active_half.png',
+            'images/owl_active_closed.png',
+            'images/owl_active_half.png',
+            'images/owl_active_open.png',
+        ];
+
+        function blink() {
+            let i = 0;
+            const interval = setInterval(() => {
+                owlFrame.src = frames[i];
+                i++;
+                if (i >= frames.length) {
+                    clearInterval(interval);
+                    // Next blink in 2-5 seconds
+                    setTimeout(blink, 2000 + Math.random() * 3000);
+                }
+            }, 80);
+        }
+        setTimeout(blink, 1500);
+
+        // Wave on hover
+        const owlHero = document.getElementById('owl-hero');
+        let waving = false;
+        owlHero.addEventListener('mouseenter', () => {
+            if (waving) return;
+            waving = true;
+            const waveFrames = [
+                'images/owl_wave_low.png',
+                'images/owl_wave_med.png',
+                'images/owl_wave_high.png',
+                'images/owl_wave_med.png',
+                'images/owl_wave_low.png',
+                'images/owl_active_open.png',
+            ];
+            let i = 0;
+            const interval = setInterval(() => {
+                owlFrame.src = waveFrames[i];
+                i++;
+                if (i >= waveFrames.length) {
+                    clearInterval(interval);
+                    waving = false;
+                }
+            }, 120);
+        });
+
+        // Floating particles
+        const particlesEl = document.getElementById('particles');
+        const colors = ['#FFE8D6', '#B8D8BA', '#A8C8E8', '#C8B8D8', '#F0C8C8'];
+        for (let i = 0; i < 15; i++) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            const size = 8 + Math.random() * 24;
+            p.style.width = size + 'px';
+            p.style.height = size + 'px';
+            p.style.left = Math.random() * 100 + '%';
+            p.style.background = colors[Math.floor(Math.random() * colors.length)];
+            p.style.animationDuration = (15 + Math.random() * 25) + 's';
+            p.style.animationDelay = -(Math.random() * 30) + 's';
+            particlesEl.appendChild(p);
+        }
+
+        // Scroll reveal
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.15 });
+
+        document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+    </script>
+</body>
+</html>

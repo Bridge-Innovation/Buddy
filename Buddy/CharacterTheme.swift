@@ -40,7 +40,7 @@ enum CharacterType: String, CaseIterable, Identifiable {
 
     /// Load the user's saved selection
     static var saved: CharacterType {
-        guard let raw = UserDefaults.standard.string(forKey: userDefaultsKey),
+        guard let raw = AppSettings.defaults.string(forKey: userDefaultsKey),
               let type = CharacterType(rawValue: raw) else {
             return .owl1
         }
@@ -49,7 +49,7 @@ enum CharacterType: String, CaseIterable, Identifiable {
 
     /// Save the user's selection
     static func save(_ type: CharacterType) {
-        UserDefaults.standard.set(type.rawValue, forKey: userDefaultsKey)
+        AppSettings.defaults.set(type.rawValue, forKey: userDefaultsKey)
     }
 }
 

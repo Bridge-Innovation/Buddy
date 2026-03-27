@@ -18,6 +18,9 @@
 		BB0000000000000000000009 /* PresenceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000010 /* PresenceManager.swift */; };
 		BB0000000000000000000010 /* FriendAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000011 /* FriendAvatarView.swift */; };
 		BB0000000000000000000011 /* FriendPanelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000012 /* FriendPanelManager.swift */; };
+		BB0000000000000000000012 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000013 /* ChatView.swift */; };
+		BB0000000000000000000013 /* ChatManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000014 /* ChatManager.swift */; };
+		BB0000000000000000000014 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000015 /* AppSettings.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +36,9 @@
 		AA0000000000000000000010 /* PresenceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresenceManager.swift; sourceTree = "<group>"; };
 		AA0000000000000000000011 /* FriendAvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendAvatarView.swift; sourceTree = "<group>"; };
 		AA0000000000000000000012 /* FriendPanelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendPanelManager.swift; sourceTree = "<group>"; };
+		AA0000000000000000000013 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		AA0000000000000000000014 /* ChatManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatManager.swift; sourceTree = "<group>"; };
+		AA0000000000000000000015 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -67,6 +73,9 @@
 				AA0000000000000000000010 /* PresenceManager.swift */,
 				AA0000000000000000000011 /* FriendAvatarView.swift */,
 				AA0000000000000000000012 /* FriendPanelManager.swift */,
+				AA0000000000000000000013 /* ChatView.swift */,
+				AA0000000000000000000014 /* ChatManager.swift */,
+				AA0000000000000000000015 /* AppSettings.swift */,
 				AA0000000000000000000005 /* Assets.xcassets */,
 			);
 			path = Buddy;
@@ -154,6 +163,9 @@
 				BB0000000000000000000009 /* PresenceManager.swift in Sources */,
 				BB0000000000000000000010 /* FriendAvatarView.swift in Sources */,
 				BB0000000000000000000011 /* FriendPanelManager.swift in Sources */,
+				BB0000000000000000000012 /* ChatView.swift in Sources */,
+				BB0000000000000000000013 /* ChatManager.swift in Sources */,
+				BB0000000000000000000014 /* AppSettings.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

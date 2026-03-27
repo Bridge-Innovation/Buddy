@@ -79,5 +79,6 @@ struct BuddyApp: App {
         } label: {
             Image(systemName: monitor.state.icon)
         }
+        .menuBarExtraStyle(.window)
     }
 }

@@ -44,7 +44,7 @@ struct CompanionView: View {
         .scaleEffect(bounceScale)
         .animation(.easeInOut(duration: 0.8), value: monitor.state)
         .animation(.easeInOut(duration: 0.5), value: isAvailable)
-        .onTapGesture(count: 2) { playWave() }
+        .onTapGesture(count: 2) { playBounce() }
         .onTapGesture(count: 1) { playBounce() }
         .onReceive(NotificationCenter.default.publisher(for: .buddyIncomingWave)) { _ in
             playWave()
@@ -192,7 +192,6 @@ struct IdleStateView: View {
         .frame(width: 192, height: 192)
         // Slightly squished — settled and drowsy
         .scaleEffect(x: 1.02, y: 0.98)
-        .animation(.easeInOut(duration: 0.3), value: isDrowsyBlinking)
         .onAppear { scheduleDrowsyBlink() }
         .onDisappear { blinkTimer?.invalidate() }
     }

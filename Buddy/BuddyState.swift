@@ -6,6 +6,14 @@ extension Notification.Name {
     static let buddyIncomingWave = Notification.Name("buddyIncomingWave")
     /// Tells a specific friend avatar to show the wave bubble (userInfo: ["fromUserId": String])
     static let buddyFriendWaved = Notification.Name("buddyFriendWaved")
+    /// Incoming chat message (userInfo: ["fromUserId": String])
+    static let buddyIncomingMessage = Notification.Name("buddyIncomingMessage")
+    /// Open chat window for a friend (userInfo: ["friendId": String])
+    static let buddyOpenChat = Notification.Name("buddyOpenChat")
+    /// Remote friend is waving at us — play wave animation only (userInfo: ["fromUserId": String])
+    static let buddyFriendWaveReceived = Notification.Name("buddyFriendWaveReceived")
+    /// Incoming call request (userInfo: ["fromUserId": String, "fromDisplayName": String, "facetimeContact": String])
+    static let buddyIncomingCall = Notification.Name("buddyIncomingCall")
 }
 
 enum BuddyState: String, CaseIterable, Hashable {

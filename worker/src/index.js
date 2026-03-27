@@ -30,10 +30,16 @@ export default {
         result = await handleAddFriend(request, env);
       } else if (method === "POST" && path === "/friends/remove") {
         result = await handleRemoveFriend(request, env);
+      } else if (method === "POST" && path === "/profile/update") {
+        result = await handleProfileUpdate(request, env);
       } else if (method === "POST" && path === "/events/send") {
         result = await handleSendEvent(request, env);
       } else if (method === "GET" && path === "/events") {
         result = await handleGetEvents(url, env);
+      } else if (method === "POST" && path === "/messages/send") {
+        result = await handleSendMessage(request, env);
+      } else if (method === "GET" && path === "/messages") {
+        result = await handleGetMessages(url, env);
       } else {
         result = json({ error: "Not found" }, 404);
       }
@@ -88,6 +94,7 @@ async function handleRegister(request, env) {
   const body = await request.json().catch(() => ({}));
   const displayName = body.displayName || "Buddy";
   const characterType = body.characterType || "owl";
+  const facetimeContact = body.facetimeContact || "";
 
   const userId = generateUUID();
   const friendCode = generateFriendCode();
@@ -97,6 +104,7 @@ async function handleRegister(request, env) {
     displayName,
     friendCode,
     characterType,
+    facetimeContact,
     activityState: "active",
     isAvailable: false,
     lastSeen: Date.now(),
@@ -151,6 +159,7 @@ async function handleGetFriends(url, env) {
         activityState: friend.activityState,
         isAvailable: friend.isAvailable,
         lastSeen: friend.lastSeen,
+        facetimeContact: friend.facetimeContact || "",
       });
     }
   }
@@ -224,6 +233,23 @@ async function handleRemoveFriend(request, env) {
   return json({ ok: true });
 }
 
+async function handleProfileUpdate(request, env) {
+  const body = await request.json();
+  const { userId, displayName, facetimeContact } = body;
+
+  if (!userId) return json({ error: "userId required" }, 400);
+
+  const user = await getUser(env, userId);
+  if (!user) return json({ error: "User not found" }, 404);
+
+  if (displayName !== undefined) user.displayName = displayName;
+  if (facetimeContact !== undefined) user.facetimeContact = facetimeContact;
+
+  await putUser(env, user);
+
+  return json({ ok: true });
+}
+
 async function handleSendEvent(request, env) {
   const body = await request.json();
   const { fromUserId, toUserId, eventType } = body;
@@ -266,4 +292,46 @@ async function handleGetEvents(url, env) {
   }
 
   return json({ events });
+}
+
+async function handleSendMessage(request, env) {
+  const body = await request.json();
+  const { fromUserId, toUserId, message } = body;
+
+  if (!fromUserId || !toUserId || !message) {
+    return json({ error: "fromUserId, toUserId, and message required" }, 400);
+  }
+
+  const fromUser = await getUser(env, fromUserId);
+  if (!fromUser) return json({ error: "Sender not found" }, 404);
+
+  const msg = {
+    id: generateUUID(),
+    fromUserId,
+    fromDisplayName: fromUser.displayName,
+    toUserId,
+    message,
+    timestamp: Date.now(),
+  };
+
+  const messagesKey = `messages:${toUserId}`;
+  const existing = (await env.KV.get(messagesKey, "json")) || [];
+  existing.push(msg);
+  await env.KV.put(messagesKey, JSON.stringify(existing));
+
+  return json({ ok: true, messageId: msg.id });
+}
+
+async function handleGetMessages(url, env) {
+  const userId = url.searchParams.get("userId");
+  if (!userId) return json({ error: "userId required" }, 400);
+
+  const messagesKey = `messages:${userId}`;
+  const messages = (await env.KV.get(messagesKey, "json")) || [];
+
+  if (messages.length > 0) {
+    await env.KV.delete(messagesKey);
+  }
+
+  return json({ messages });
 }
