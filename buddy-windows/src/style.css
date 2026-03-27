@@ -1,0 +1,58 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { background: transparent; overflow: hidden; }
+#app {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+}
+#app:active { cursor: grabbing; }
+
+/* Companion container */
+#companion-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Owl sprite */
+#owl-img {
+  image-rendering: auto;
+  transition: opacity 0.3s ease-in-out;
+  pointer-events: none;
+}
+
+/* Breathing crossfade for asleep state */
+#owl-img.breathing {
+  transition: opacity 0.6s ease-in-out;
+}
+
+/* Availability dot — small green dot above the owl */
+#availability-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #34c759;
+  box-shadow: 0 0 4px rgba(52, 199, 89, 0.6);
+  margin-bottom: 4px;
+  opacity: 0;
+  transition: opacity 0.5s ease-in-out;
+}
+
+/* Name label pill below the owl */
+#name-label {
+  background: rgba(0, 0, 0, 0.55);
+  color: white;
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  display: none;
+}

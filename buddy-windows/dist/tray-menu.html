@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      background: transparent;
+      font-family: 'Nunito', sans-serif;
+      font-size: 13px;
+      color: #3a2e1c;
+      user-select: none;
+      overflow: hidden;
+    }
+
+    .popup {
+      background: #fdf6ec;
+      border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 100vh;
+      overflow-y: auto;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .field-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .field-label {
+      color: #8a7e6e;
+      font-size: 12px;
+      min-width: 60px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      border: 1px solid #d4c9b5;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 13px;
+      background: #fff;
+      color: #3a2e1c;
+      outline: none;
+    }
+    input[type="text"]:focus {
+      border-color: #b08d57;
+    }
+
+    .code-display {
+      font-family: 'SF Mono', 'Consolas', monospace;
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: 2px;
+    }
+
+    .copy-btn {
+      background: none;
+      border: 1px solid #d4c9b5;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 11px;
+      cursor: pointer;
+      color: #8a7e6e;
+    }
+    .copy-btn:hover { background: #efe6d5; }
+
+    .divider {
+      height: 1px;
+      background: #e0d5c4;
+      margin: 2px 0;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 36px;
+      height: 20px;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc;
+      border-radius: 20px;
+      transition: 0.2s;
+    }
+    .toggle-slider::before {
+      content: "";
+      position: absolute;
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background: white;
+      border-radius: 50%;
+      transition: 0.2s;
+    }
+    .toggle-switch input:checked + .toggle-slider {
+      background-color: #34c759;
+    }
+    .toggle-switch input:checked + .toggle-slider::before {
+      transform: translateX(16px);
+    }
+
+    .picker-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    select {
+      border: 1px solid #d4c9b5;
+      border-radius: 6px;
+      padding: 3px 6px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 12px;
+      background: #fff;
+      color: #3a2e1c;
+      outline: none;
+    }
+
+    .section-label {
+      font-size: 11px;
+      color: #8a7e6e;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .friend-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 0;
+    }
+
+    .friend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .friend-name {
+      flex: 1;
+      font-size: 13px;
+    }
+
+    .friend-status {
+      font-size: 11px;
+      color: #8a7e6e;
+    }
+
+    .add-row {
+      display: flex;
+      gap: 6px;
+    }
+    .add-row input {
+      width: 90px;
+      font-family: 'SF Mono', 'Consolas', monospace;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .btn {
+      border: 1px solid #d4c9b5;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 12px;
+      background: #fff;
+      color: #3a2e1c;
+      cursor: pointer;
+    }
+    .btn:hover { background: #efe6d5; }
+    .btn:disabled { opacity: 0.4; cursor: default; }
+
+    .btn-quit {
+      color: #c0392b;
+      border-color: #c0392b33;
+    }
+    .btn-quit:hover { background: #fdeaea; }
+
+    .bottom-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .bottom-actions .btn {
+      width: 100%;
+      text-align: center;
+    }
+  </style>
+  <script type="module" crossorigin src="/assets/tray-menu-BjG0gSzm.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/settings-BSzFEN2G.js">
+  <link rel="modulepreload" crossorigin href="/assets/window-CA7tEpcz.js">
+</head>
+<body>
+  <div class="popup">
+    <!-- Status -->
+    <div class="status-row">
+      <span id="status-icon"></span>
+      <span id="status-label">Active</span>
+    </div>
+
+    <!-- Display name -->
+    <div class="field-row">
+      <span class="field-label">Name</span>
+      <input type="text" id="display-name" placeholder="Your name">
+    </div>
+
+    <!-- Friend code -->
+    <div class="field-row">
+      <span class="field-label">My code</span>
+      <span id="friend-code" class="code-display">------</span>
+      <button class="copy-btn" id="copy-code-btn">Copy</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Available toggle -->
+    <div class="toggle-row">
+      <span>Available to cowork</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="available-toggle">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <!-- Character picker -->
+    <div class="picker-row">
+      <span>Character</span>
+      <select id="character-select">
+        <option value="owl1">Owl 1</option>
+        <option value="owl2">Owl 2</option>
+      </select>
+    </div>
+
+    <!-- Owl size -->
+    <div class="picker-row">
+      <span>Owl Size</span>
+      <select id="size-select">
+        <option value="0">Small</option>
+        <option value="1">Medium</option>
+        <option value="2">Large</option>
+      </select>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Friends section -->
+    <div id="friends-section" style="display: none;">
+      <div class="section-label">Friends</div>
+      <div id="friends-list"></div>
+      <div class="divider" style="margin-top: 4px;"></div>
+    </div>
+
+    <!-- Add friend -->
+    <div class="add-row">
+      <input type="text" id="add-friend-input" placeholder="CODE" maxlength="6">
+      <button class="btn" id="add-friend-btn" disabled>Add</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Bottom actions -->
+    <div class="bottom-actions">
+      <button class="btn" id="check-updates-btn">Check for Updates</button>
+      <button class="btn btn-quit" id="quit-btn">Quit Buddy</button>
+    </div>
+  </div>
+
+</body>
+</html>

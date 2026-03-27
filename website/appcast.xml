@@ -1,0 +1,53 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0">
+    <channel>
+        <title>Buddy Updates</title>
+        <language>en</language>
+        <item>
+            <title>Version 1.1.0</title>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h2>Buddy v1.1.0</h2>
+                <ul>
+                    <li>Real-time delivery via Server-Sent Events — waves, chats, and calls arrive instantly</li>
+                    <li>FaceTime calling now works correctly — click Call and it dials your friend directly</li>
+                    <li>Owl size picker (Small / Medium / Large) in the menu bar</li>
+                    <li>Friend names now visible on dark wallpapers</li>
+                    <li>Subtle green dot replaces the large availability glow</li>
+                    <li>Chat messages now show in a speech bubble before shrinking to an indicator</li>
+                    <li>Wave animation no longer gets clipped</li>
+                </ul>
+            ]]></description>
+            <pubDate>Thu, 27 Mar 2026 20:00:00 +0000</pubDate>
+            <enclosure
+                url="https://github.com/Bridge-Innovation/Buddy/releases/latest/download/Buddy.dmg"
+                type="application/octet-stream"
+                sparkle:edSignature="LfCFO1ccectAXeuR2bXFlbl6bGILGSQUMyow5EUnRpLgGJlCrPFBV7yh3gNz1pMjJo1kyRpkSu/3SxWbt5kQAw=="
+                length="2621447"
+            />
+        </item>
+        <item>
+            <title>Version 1.0.0</title>
+            <sparkle:version>1</sparkle:version>
+            <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h2>Buddy v1.0.0</h2>
+                <ul>
+                    <li>Initial release with Sparkle auto-updates</li>
+                    <li>Near-instant event polling for waves, chat, and calls</li>
+                    <li>Signed and notarized for macOS</li>
+                </ul>
+            ]]></description>
+            <pubDate>Thu, 27 Mar 2026 14:00:00 +0000</pubDate>
+            <enclosure
+                url="https://github.com/Bridge-Innovation/Buddy/releases/download/v0.1.0/Buddy-1.0.0.dmg"
+                type="application/octet-stream"
+                sparkle:edSignature="0OU+D635blZTYTJotrFCCk4IzdmZ32ZpkbJrwe+xhtOQNrQqYQXfucQ0EjoRZahZyTGXHx8ywXRLk72Z072gAQ=="
+                length="2595428"
+            />
+        </item>
+    </channel>
+</rss>

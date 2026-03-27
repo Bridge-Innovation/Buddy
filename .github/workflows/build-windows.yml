@@ -1,0 +1,60 @@
+name: Build & Release Windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: buddy-windows/src-tauri
+
+      - name: Install frontend dependencies
+        working-directory: buddy-windows
+        run: npm install
+
+      - name: Update version in tauri.conf.json
+        working-directory: buddy-windows/src-tauri
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" tauri.conf.json
+
+      - name: Build Tauri app
+        working-directory: buddy-windows
+        run: npx tauri build
+
+      - name: Upload installer to GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="v${VERSION}"
+          EXE="buddy-windows/src-tauri/target/release/bundle/nsis/Buddy_${VERSION}_x64-setup.exe"
+          ZIP="buddy-windows/src-tauri/target/release/bundle/nsis/Buddy_${VERSION}_x64-setup.nsis.zip"
+
+          # Create release if it doesn't exist, or upload to existing
+          gh release view "$TAG" 2>/dev/null || gh release create "$TAG" --title "Buddy $TAG" --notes "Buddy $TAG for Windows"
+
+          # Upload artifacts
+          gh release upload "$TAG" "$EXE" --clobber || true
+          gh release upload "$TAG" "$ZIP" --clobber || true

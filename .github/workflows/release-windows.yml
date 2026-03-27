@@ -1,0 +1,64 @@
+name: Build Windows
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      tag:
+        required: true
+        type: string
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: buddy-windows/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: buddy-windows/src-tauri
+
+      - name: Install frontend dependencies
+        working-directory: buddy-windows
+        run: npm ci
+
+      - name: Update version in tauri.conf.json
+        working-directory: buddy-windows/src-tauri
+        shell: bash
+        run: |
+          # Update version in tauri.conf.json to match the release
+          VERSION="${{ inputs.version }}"
+          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" tauri.conf.json
+
+      - name: Update version in package.json
+        working-directory: buddy-windows
+        shell: bash
+        run: |
+          VERSION="${{ inputs.version }}"
+          sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" package.json
+
+      - name: Build Tauri app
+        working-directory: buddy-windows
+        run: npx tauri build
+
+      - name: Upload NSIS installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: |
+            buddy-windows/src-tauri/target/release/bundle/nsis/Buddy_${{ inputs.version }}_x64-setup.exe
+            buddy-windows/src-tauri/target/release/bundle/nsis/Buddy_${{ inputs.version }}_x64-setup.nsis.zip
+            buddy-windows/src-tauri/target/release/bundle/nsis/Buddy_${{ inputs.version }}_x64-setup.nsis.zip.sig

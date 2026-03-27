@@ -1,0 +1,103 @@
+name: Build macOS
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      tag:
+        required: true
+        type: string
+
+jobs:
+  build-mac:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Import Developer ID certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          security create-keychain -p "" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "" "$KEYCHAIN_PATH"
+          security import certificate.p12 -k "$KEYCHAIN_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain
+          rm certificate.p12
+
+      - name: Build with xcodebuild
+        run: |
+          xcodebuild -project Buddy.xcodeproj \
+            -scheme Buddy \
+            -configuration Release \
+            -derivedDataPath build \
+            MARKETING_VERSION=${{ inputs.version }} \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            CODE_SIGN_STYLE=Manual
+
+      - name: Notarize app
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+        run: |
+          APP_PATH="build/Build/Products/Release/Buddy.app"
+
+          # Create ZIP for notarization
+          ditto -c -k --keepParent "$APP_PATH" Buddy-notarize.zip
+
+          xcrun notarytool submit Buddy-notarize.zip \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --wait
+
+          xcrun stapler staple "$APP_PATH"
+          rm Buddy-notarize.zip
+
+      - name: Create DMG
+        run: |
+          mkdir -p dmg-staging
+          cp -R "build/Build/Products/Release/Buddy.app" dmg-staging/
+          ln -s /Applications dmg-staging/Applications
+
+          hdiutil create -volname "Buddy" \
+            -srcfolder dmg-staging \
+            -ov -format UDZO \
+            Buddy.dmg
+
+          rm -rf dmg-staging
+
+      - name: Sign DMG
+        run: |
+          codesign --force --sign "Developer ID Application" Buddy.dmg
+
+      - name: Generate Sparkle EdDSA signature
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          # Write the Sparkle private key to a temp file
+          echo "$SPARKLE_PRIVATE_KEY" > /tmp/sparkle_key
+          # Generate signature using Sparkle's sign_update tool if available,
+          # otherwise output placeholder
+          if command -v sign_update &> /dev/null; then
+            sign_update Buddy.dmg -f /tmp/sparkle_key > sparkle_signature.txt
+          else
+            echo "SIGNATURE_PLACEHOLDER" > sparkle_signature.txt
+            echo "Warning: sign_update not found. Sparkle signature must be generated manually."
+          fi
+          rm /tmp/sparkle_key
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-dmg
+          path: |
+            Buddy.dmg
+            sparkle_signature.txt

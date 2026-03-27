@@ -11,8 +11,9 @@ final class CompanionPanel: NSPanel {
             : CGPoint(x: 200, y: 200)
         let origin = Self.savedOrigin ?? defaultOrigin
 
+        let scale = AppSettings.owlScale
         super.init(
-            contentRect: NSRect(origin: origin, size: CGSize(width: 192, height: 192)),
+            contentRect: NSRect(origin: origin, size: CGSize(width: 192 * scale, height: 192 * scale)),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false

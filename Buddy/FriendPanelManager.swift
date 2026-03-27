@@ -6,7 +6,11 @@ import Combine
 final class FriendPanelManager {
     private var panels: [String: FriendPanel] = [:]
     private var cancellable: AnyCancellable?
-    private let panelSize = CGSize(width: 140, height: 160)
+
+    private var panelSize: CGSize {
+        let scale = AppSettings.owlScale
+        return CGSize(width: 160 * scale, height: 200 * scale)
+    }
 
     func start() {
         cancellable = PresenceManager.shared.$friends

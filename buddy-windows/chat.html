@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="/src/chat.css">
+</head>
+<body>
+  <div id="chat-app">
+    <div id="chat-header">
+      <span id="header-name"></span>
+    </div>
+    <div id="chat-divider"></div>
+    <div id="messages"></div>
+    <div id="chat-divider"></div>
+    <div id="input-area">
+      <input id="message-input" type="text" placeholder="Say something..." autocomplete="off">
+      <button id="send-btn" disabled>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="19" x2="12" y2="5"></line>
+          <polyline points="5 12 12 5 19 12"></polyline>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <script type="module" src="/src/chat.ts"></script>
+</body>
+</html>

@@ -52,19 +52,32 @@ final class PresenceManager: ObservableObject {
     @Published private(set) var friends: [FriendStatus] = []
     @Published private(set) var pendingEvents: [BuddyEvent] = []
     @Published private(set) var incomingMessages: [ChatMessage] = []
+    @Published var displayName: String {
+        didSet {
+            AppSettings.defaults.set(displayName, forKey: Self.displayNameKey)
+            syncProfile()
+        }
+    }
+
     @Published var facetimeContact: String {
         didSet {
             AppSettings.defaults.set(facetimeContact, forKey: Self.facetimeContactKey)
-            syncFacetimeContact()
+            syncProfile()
         }
     }
 
     private let baseURL: URL
     private var statusTimer: Timer?
-    private var pollTimer: Timer?
+    private var eventTimer: Timer?
+
+    // SSE state
+    private var sseTask: Task<Void, Never>?
+    private var sseRetryCount: Int = 0
+    private let sseMaxRetryDelay: TimeInterval = 60
 
     private static let userIdKey = "BuddyUserId"
     private static let friendCodeKey = "BuddyFriendCode"
+    private static let displayNameKey = "BuddyDisplayName"
     private static let facetimeContactKey = "BuddyFacetimeContact"
 
     private init() {
@@ -76,6 +89,7 @@ final class PresenceManager: ObservableObject {
         // Restore saved credentials
         self.userId = AppSettings.defaults.string(forKey: Self.userIdKey)
         self.friendCode = AppSettings.defaults.string(forKey: Self.friendCodeKey)
+        self.displayName = AppSettings.defaults.string(forKey: Self.displayNameKey) ?? ""
         self.facetimeContact = AppSettings.defaults.string(forKey: Self.facetimeContactKey) ?? ""
     }
 
@@ -89,14 +103,17 @@ final class PresenceManager: ObservableObject {
 
             startStatusUpdates()
             startPolling()
+            connectSSE()
         }
     }
 
     func stop() {
         statusTimer?.invalidate()
         statusTimer = nil
-        pollTimer?.invalidate()
-        pollTimer = nil
+        eventTimer?.invalidate()
+        eventTimer = nil
+        sseTask?.cancel()
+        sseTask = nil
     }
 
     // MARK: - Registration
@@ -108,7 +125,7 @@ final class PresenceManager: ObservableObject {
             let displayName: String
         }
 
-        let name = AppSettings.isTestUser2 ? "Test Owl 2" : "Buddy User"
+        let name = displayName.isEmpty ? "Buddy User" : displayName
         guard let response: RegisterResponse = await post("/register", body: [
             "displayName": name,
         ]) else { return }
@@ -117,14 +134,22 @@ final class PresenceManager: ObservableObject {
         friendCode = response.friendCode
         AppSettings.defaults.set(response.userId, forKey: Self.userIdKey)
         AppSettings.defaults.set(response.friendCode, forKey: Self.friendCodeKey)
+        // Store the name the server accepted
+        if displayName.isEmpty {
+            displayName = response.displayName
+        }
     }
 
-    // MARK: - Status updates (every 30s)
+    // MARK: - Status + friends heartbeat (every 60s)
 
     private func startStatusUpdates() {
         sendStatus()
+        pollFriends()
         statusTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.sendStatus() }
+            Task { @MainActor in
+                self?.sendStatus()
+                self?.pollFriends()
+            }
         }
     }
 
@@ -149,29 +174,35 @@ final class PresenceManager: ObservableObject {
         }
     }
 
-    // MARK: - Polling (every 5s)
+    // MARK: - Event polling (every 10s — SSE is the fast path, polling is the safety net)
 
     private func startPolling() {
-        pollFriendsAndEvents()
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.pollFriendsAndEvents() }
+        pollEvents()
+        eventTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.pollEvents() }
         }
     }
 
-    private func pollFriendsAndEvents() {
+    private func pollFriends() {
         guard let userId else { return }
 
         Task {
-            async let friendsResult = get("/friends?userId=\(userId)", as: FriendsResponse.self)
-            async let eventsResult = get("/events?userId=\(userId)", as: EventsResponse.self)
-            async let messagesResult = get("/messages?userId=\(userId)", as: MessagesResponse.self)
-
-            if let fr = await friendsResult {
+            if let fr = await get("/friends?userId=\(userId)", as: FriendsResponse.self) {
                 friends = fr.friends
                 if !fr.friends.isEmpty {
                     print("[Buddy] Friends online: \(fr.friends.map { "\($0.displayName) (\($0.userId.prefix(8))...)" }.joined(separator: ", "))")
                 }
             }
+        }
+    }
+
+    func pollEvents() {
+        guard let userId else { return }
+
+        Task {
+            async let eventsResult = get("/events?userId=\(userId)", as: EventsResponse.self)
+            async let messagesResult = get("/messages?userId=\(userId)", as: MessagesResponse.self)
+
             if let ev = await eventsResult {
                 if !ev.events.isEmpty {
                     print("[Buddy] Received \(ev.events.count) event(s): \(ev.events.map { "\($0.eventType) from \($0.fromDisplayName)" }.joined(separator: ", "))")
@@ -184,6 +215,114 @@ final class PresenceManager: ObservableObject {
                 }
             }
         }
+    }
+
+    // MARK: - SSE Connection
+
+    private func connectSSE() {
+        sseTask?.cancel()
+        sseTask = Task { [weak self] in
+            guard let self else { return }
+            await self.runSSELoop()
+        }
+    }
+
+    private func runSSELoop() async {
+        while !Task.isCancelled {
+            guard let userId = await MainActor.run(body: { self.userId }) else {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                continue
+            }
+
+            guard let streamURL = URL(string: "/stream?userId=\(userId)", relativeTo: baseURL) else {
+                return
+            }
+
+            print("[Buddy] SSE connecting to \(streamURL)")
+
+            var request = URLRequest(url: streamURL)
+            request.timeoutInterval = .infinity
+            request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+
+            do {
+                let (bytes, response) = try await URLSession.shared.bytes(for: request)
+
+                guard let httpResponse = response as? HTTPURLResponse,
+                      httpResponse.statusCode == 200 else {
+                    print("[Buddy] SSE bad status, retrying...")
+                    await sseBackoff()
+                    continue
+                }
+
+                // Connected successfully — reset retry count
+                await MainActor.run { self.sseRetryCount = 0 }
+                print("[Buddy] SSE connected")
+
+                for try await line in bytes.lines {
+                    if Task.isCancelled { break }
+
+                    guard line.hasPrefix("data: ") else { continue }
+                    let jsonStr = String(line.dropFirst(6))
+
+                    guard let data = jsonStr.data(using: .utf8) else { continue }
+
+                    await self.handleSSEData(data)
+                }
+
+                print("[Buddy] SSE stream ended")
+            } catch {
+                if Task.isCancelled { return }
+                print("[Buddy] SSE error: \(error.localizedDescription)")
+            }
+
+            await sseBackoff()
+        }
+    }
+
+    @MainActor
+    private func handleSSEData(_ data: Data) {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let type = json["type"] as? String,
+              let payloadObj = json["payload"] else {
+            return
+        }
+
+        guard let payloadData = try? JSONSerialization.data(withJSONObject: payloadObj) else {
+            return
+        }
+
+        let decoder = JSONDecoder()
+
+        switch type {
+        case "event":
+            if let event = try? decoder.decode(BuddyEvent.self, from: payloadData) {
+                // Deduplicate — don't add if already present
+                if !pendingEvents.contains(where: { $0.id == event.id }) {
+                    print("[Buddy] SSE event: \(event.eventType) from \(event.fromDisplayName)")
+                    pendingEvents.append(event)
+                }
+            }
+        case "message":
+            if let msg = try? decoder.decode(ChatMessage.self, from: payloadData) {
+                if !incomingMessages.contains(where: { $0.id == msg.id }) {
+                    print("[Buddy] SSE message from \(msg.fromDisplayName)")
+                    incomingMessages.append(msg)
+                }
+            }
+        default:
+            break
+        }
+    }
+
+    private func sseBackoff() async {
+        let retryCount = await MainActor.run {
+            self.sseRetryCount += 1
+            return self.sseRetryCount
+        }
+        // Exponential backoff: 1s, 2s, 4s, 8s, ... capped at 60s
+        let delay = min(pow(2.0, Double(retryCount - 1)), sseMaxRetryDelay)
+        print("[Buddy] SSE reconnecting in \(delay)s (attempt \(retryCount))")
+        try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
     }
 
     // MARK: - Public actions
@@ -202,7 +341,7 @@ final class PresenceManager: ObservableObject {
         ])
 
         if response?.ok == true {
-            pollFriendsAndEvents()
+            pollFriends()
         }
         return response?.friend
     }
@@ -225,6 +364,7 @@ final class PresenceManager: ObservableObject {
             "toUserId": friendId,
             "eventType": "wave",
         ])
+        pollEvents()
     }
 
     func sendCallRequest(to friendId: String) async {
@@ -235,6 +375,7 @@ final class PresenceManager: ObservableObject {
             "toUserId": friendId,
             "eventType": "call",
         ])
+        pollEvents()
     }
 
     func consumeEvent(_ event: BuddyEvent) {
@@ -249,6 +390,7 @@ final class PresenceManager: ObservableObject {
             "toUserId": friendId,
             "message": message,
         ])
+        pollEvents()
     }
 
     func consumeMessages(from friendId: String) -> [ChatMessage] {
@@ -257,11 +399,12 @@ final class PresenceManager: ObservableObject {
         return msgs
     }
 
-    private func syncFacetimeContact() {
+    private func syncProfile() {
         guard let userId else { return }
         Task {
             let _: EmptyResponse? = await post("/profile/update", body: [
                 "userId": userId,
+                "displayName": displayName,
                 "facetimeContact": facetimeContact,
             ])
         }

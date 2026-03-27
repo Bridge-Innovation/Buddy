@@ -1,0 +1,25 @@
+{
+  "identifier": "default",
+  "description": "Default capabilities for the Buddy app",
+  "windows": ["companion", "tray-menu", "friend-*", "chat-*"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-create",
+    "core:window:allow-close",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-focus",
+    "core:window:allow-is-visible",
+    "core:webview:default",
+    "core:webview:allow-create-webview-window",
+    "core:event:default",
+    "core:event:allow-emit",
+    "core:event:allow-listen",
+    "core:tray:default",
+    "core:path:default",
+    "shell:allow-open",
+    "store:default",
+    "process:default"
+  ]
+}

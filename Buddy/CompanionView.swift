@@ -41,7 +41,7 @@ struct CompanionView: View {
             }
         }
         .frame(width: 192, height: 192)
-        .scaleEffect(bounceScale)
+        .scaleEffect(bounceScale * AppSettings.owlScale)
         .animation(.easeInOut(duration: 0.8), value: monitor.state)
         .animation(.easeInOut(duration: 0.5), value: isAvailable)
         .onTapGesture(count: 2) { playBounce() }
@@ -85,22 +85,25 @@ struct CompanionView: View {
 // MARK: - Available Glow
 
 struct AvailableGlowView: View {
-    @State private var glowOpacity: Double = 0.3
+    @State private var dotOpacity: Double = 0.7
 
     var body: some View {
-        Circle()
-            .fill(Color.green)
-            .frame(width: 160, height: 160)
-            .blur(radius: 20)
-            .opacity(glowOpacity)
-            .onAppear {
-                withAnimation(
-                    .easeInOut(duration: 2.0)
-                    .repeatForever(autoreverses: true)
-                ) {
-                    glowOpacity = 0.7
+        VStack {
+            Circle()
+                .fill(Color.green)
+                .frame(width: 10, height: 10)
+                .shadow(color: .green.opacity(0.6), radius: 3)
+                .opacity(dotOpacity)
+                .onAppear {
+                    withAnimation(
+                        .easeInOut(duration: 2.0)
+                        .repeatForever(autoreverses: true)
+                    ) {
+                        dotOpacity = 1.0
+                    }
                 }
-            }
+            Spacer()
+        }
     }
 }
 

@@ -12,6 +12,8 @@ struct FriendAvatarView: View {
     @State private var waveFrameImage: String?
     @State private var isWaving = false
     @State private var hasUnreadMessage = false
+    @State private var incomingMessageText: String?
+    @State private var showFullChatBubble = false
 
     private var isAvailable: Bool { friend.isAvailable && friend.state == .active }
 
@@ -19,7 +21,7 @@ struct FriendAvatarView: View {
         mainContent
             .onReceive(waveLocalPublisher) { _ in showTimedIndicator($showWaveBubble) }
             .onReceive(waveRemotePublisher) { _ in playWave() }
-            .onReceive(messagePublisher) { _ in handleIncomingMessage() }
+            .onReceive(messagePublisher) { notification in handleIncomingMessage(notification) }
             .onReceive(chatOpenedPublisher) { _ in clearUnread() }
             .onReceive(callPublisher) { _ in showTimedIndicator($showCallBubble) }
     }
@@ -29,7 +31,7 @@ struct FriendAvatarView: View {
     private var mainContent: some View {
         VStack(spacing: 2) {
             avatarZStack
-                .frame(width: 130, height: 100)
+                .frame(width: 140, height: 140)
                 .animation(.easeInOut(duration: 0.8), value: friend.state)
                 .animation(.easeInOut(duration: 0.5), value: isAvailable)
                 .contentShape(Rectangle())
@@ -39,11 +41,17 @@ struct FriendAvatarView: View {
 
             Text(friend.displayName)
                 .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.primary.opacity(0.8))
+                .foregroundStyle(.white)
                 .lineLimit(1)
                 .frame(maxWidth: 100)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule()
+                        .fill(Color.black.opacity(0.55))
+                )
         }
-        .scaleEffect(bounceScale)
+        .scaleEffect(bounceScale * AppSettings.owlScale)
     }
 
     // MARK: - Avatar layers
@@ -93,31 +101,23 @@ struct FriendAvatarView: View {
     private var overlayBubbles: some View {
         if showWaveBubble {
             IndicatorBubble(text: "\u{1F44B}")
-                .offset(x: 30, y: -35)
+                .offset(x: 30, y: -50)
                 .transition(.scale.combined(with: .opacity))
         }
-        if showMessageBubble {
+        if showFullChatBubble, let messageText = incomingMessageText {
+            ChatBubbleView(text: messageText)
+                .offset(x: 0, y: -65)
+                .transition(.scale.combined(with: .opacity))
+        } else if showMessageBubble || hasUnreadMessage {
             IndicatorBubble(text: "\u{1F4AC}")
-                .offset(x: -30, y: -35)
+                .offset(x: -30, y: -50)
                 .transition(.scale.combined(with: .opacity))
         }
         if showCallBubble {
             IndicatorBubble(text: "\u{1F4DE}")
-                .offset(x: 0, y: -40)
+                .offset(x: 0, y: -55)
                 .transition(.scale.combined(with: .opacity))
         }
-        if hasUnreadMessage {
-            unreadBadge
-        }
-    }
-
-    private var unreadBadge: some View {
-        Circle()
-            .fill(Color(red: 0.85, green: 0.45, blue: 0.2))
-            .frame(width: 12, height: 12)
-            .overlay(Circle().stroke(Color.white, lineWidth: 1.5))
-            .offset(x: 35, y: -35)
-            .transition(.scale.combined(with: .opacity))
     }
 
     // MARK: - Context menu
@@ -132,6 +132,12 @@ struct FriendAvatarView: View {
             )
         }
         Button("Call") {
+            // Immediately open FaceTime on the caller's machine
+            if let contact = friend.facetimeContact, !contact.isEmpty,
+               let url = URL(string: "facetime://\(contact)") {
+                NSWorkspace.shared.open(url)
+            }
+            // Send a lightweight notification to the friend
             Task { await PresenceManager.shared.sendCallRequest(to: friend.userId) }
         }
     }
@@ -150,10 +156,9 @@ struct FriendAvatarView: View {
             .filter { $0 == friend.userId }
     }
 
-    private var messagePublisher: some Combine.Publisher<String, Never> {
+    private var messagePublisher: some Combine.Publisher<Notification, Never> {
         NotificationCenter.default.publisher(for: .buddyIncomingMessage)
-            .compactMap { $0.userInfo?["fromUserId"] as? String }
-            .filter { $0 == friend.userId }
+            .filter { ($0.userInfo?["fromUserId"] as? String) == friend.userId }
     }
 
     private var chatOpenedPublisher: some Combine.Publisher<String, Never> {
@@ -203,10 +208,21 @@ struct FriendAvatarView: View {
         }
     }
 
-    private func handleIncomingMessage() {
-        showTimedIndicator($showMessageBubble)
+    private func handleIncomingMessage(_ notification: Notification) {
+        let text = notification.userInfo?["messageText"] as? String
+        incomingMessageText = text
+
+        // Show the full chat bubble with message text
         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+            showFullChatBubble = true
             hasUnreadMessage = true
+        }
+
+        // After 5 seconds, collapse to the small indicator
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+            withAnimation(.easeOut(duration: 0.4)) {
+                showFullChatBubble = false
+            }
         }
     }
 
@@ -240,5 +256,25 @@ private struct IndicatorBubble: View {
                     .fill(.ultraThinMaterial)
                     .shadow(radius: 2)
             )
+    }
+}
+
+private struct ChatBubbleView: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 12, weight: .regular))
+            .foregroundStyle(.white)
+            .lineLimit(3)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .frame(maxWidth: 160)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.black.opacity(0.75))
+                    .shadow(radius: 3)
+            )
+            .fixedSize(horizontal: false, vertical: true)
     }
 }

@@ -1,4 +1,111 @@
-// Buddy Presence Server — Cloudflare Worker + KV
+// Buddy Presence Server — Cloudflare Worker + KV + Durable Objects (SSE)
+
+// --- Durable Object: UserChannel ---
+// Holds open SSE connections for a given userId and pushes events/messages in real time.
+
+export class UserChannel {
+  constructor(state, env) {
+    this.state = state;
+    this.env = env;
+    this.connections = new Set();
+  }
+
+  async fetch(request) {
+    const url = new URL(request.url);
+
+    if (url.pathname === "/connect") {
+      return this.handleSSE(request);
+    }
+
+    if (url.pathname === "/push") {
+      const data = await request.json();
+      this.broadcast(data);
+      return new Response("ok");
+    }
+
+    return new Response("not found", { status: 404 });
+  }
+
+  handleSSE(request) {
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    const encoder = new TextEncoder();
+
+    const conn = { writer, encoder, closed: false };
+    this.connections.add(conn);
+
+    // Send initial keepalive so the client knows the connection is live
+    writer.write(encoder.encode(":ok\n\n")).catch(() => {});
+
+    // Keepalive every 30s to prevent proxy/client timeouts
+    const keepalive = setInterval(() => {
+      if (conn.closed) {
+        clearInterval(keepalive);
+        return;
+      }
+      writer.write(encoder.encode(":keepalive\n\n")).catch(() => {
+        conn.closed = true;
+        this.connections.delete(conn);
+        clearInterval(keepalive);
+      });
+    }, 30000);
+
+    // Clean up when the client disconnects
+    request.signal?.addEventListener("abort", () => {
+      conn.closed = true;
+      this.connections.delete(conn);
+      clearInterval(keepalive);
+      writer.close().catch(() => {});
+    });
+
+    return new Response(readable, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  }
+
+  broadcast(data) {
+    const payload = `data: ${JSON.stringify(data)}\n\n`;
+    for (const conn of this.connections) {
+      if (conn.closed) {
+        this.connections.delete(conn);
+        continue;
+      }
+      conn.writer.write(conn.encoder.encode(payload)).catch(() => {
+        conn.closed = true;
+        this.connections.delete(conn);
+      });
+    }
+  }
+}
+
+// --- Helper to get a user's Durable Object stub ---
+
+function getUserChannel(env, userId) {
+  const id = env.USER_CHANNEL.idFromName(userId);
+  return env.USER_CHANNEL.get(id);
+}
+
+// --- Push to a user's SSE stream (best-effort, non-blocking) ---
+
+async function pushToStream(env, userId, payload) {
+  try {
+    const stub = getUserChannel(env, userId);
+    await stub.fetch(new Request("https://internal/push", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }));
+  } catch (e) {
+    // SSE push is best-effort; KV is the fallback
+    console.error("[SSE push failed]", e.message);
+  }
+}
+
+// --- Main Worker ---
 
 export default {
   async fetch(request, env) {
@@ -20,7 +127,9 @@ export default {
     try {
       let result;
 
-      if (method === "POST" && path === "/register") {
+      if (method === "GET" && path === "/stream") {
+        result = await handleStream(url, env);
+      } else if (method === "POST" && path === "/register") {
         result = await handleRegister(request, env);
       } else if (method === "POST" && path === "/status") {
         result = await handleStatus(request, env);
@@ -44,9 +153,11 @@ export default {
         result = json({ error: "Not found" }, 404);
       }
 
-      // Attach CORS headers
-      for (const [key, value] of Object.entries(corsHeaders)) {
-        result.headers.set(key, value);
+      // Attach CORS headers (skip for SSE — already has its own headers)
+      if (!result.headers.get("Content-Type")?.includes("text/event-stream")) {
+        for (const [key, value] of Object.entries(corsHeaders)) {
+          result.headers.set(key, value);
+        }
       }
       return result;
     } catch (err) {
@@ -90,6 +201,20 @@ async function putUser(env, user) {
 
 // --- Handlers ---
 
+async function handleStream(url, env) {
+  const userId = url.searchParams.get("userId");
+  if (!userId) {
+    return json({ error: "userId required" }, 400);
+  }
+
+  // Proxy the request to the user's Durable Object for SSE
+  const stub = getUserChannel(env, userId);
+  return stub.fetch(new Request("https://internal/connect", {
+    headers: { "Upgrade": "websocket" },
+    signal: undefined,
+  }));
+}
+
 async function handleRegister(request, env) {
   const body = await request.json().catch(() => ({}));
   const displayName = body.displayName || "Buddy";
@@ -113,7 +238,7 @@ async function handleRegister(request, env) {
 
   await putUser(env, user);
 
-  // Index friend code → userId for lookup
+  // Index friend code -> userId for lookup
   await env.KV.put(`friendcode:${friendCode}`, userId);
 
   return json({ userId, friendCode, displayName });
@@ -270,11 +395,14 @@ async function handleSendEvent(request, env) {
     timestamp: Date.now(),
   };
 
-  // Append to recipient's event queue
+  // Write to KV (fallback for offline clients)
   const eventsKey = `events:${toUserId}`;
   const existing = (await env.KV.get(eventsKey, "json")) || [];
   existing.push(event);
   await env.KV.put(eventsKey, JSON.stringify(existing));
+
+  // Push to SSE stream (real-time fast path)
+  await pushToStream(env, toUserId, { type: "event", payload: event });
 
   return json({ ok: true, eventId: event.id });
 }
@@ -314,10 +442,14 @@ async function handleSendMessage(request, env) {
     timestamp: Date.now(),
   };
 
+  // Write to KV (fallback)
   const messagesKey = `messages:${toUserId}`;
   const existing = (await env.KV.get(messagesKey, "json")) || [];
   existing.push(msg);
   await env.KV.put(messagesKey, JSON.stringify(existing));
+
+  // Push to SSE stream (real-time fast path)
+  await pushToStream(env, toUserId, { type: "message", payload: msg });
 
   return json({ ok: true, messageId: msg.id });
 }

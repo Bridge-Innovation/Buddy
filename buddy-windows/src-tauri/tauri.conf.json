@@ -1,0 +1,71 @@
+{
+  "productName": "Buddy",
+  "version": "1.1.0",
+  "identifier": "com.sarahgilmore.buddy",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "companion",
+        "title": "Buddy",
+        "width": 200,
+        "height": 220,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "url": "index.html"
+      },
+      {
+        "label": "tray-menu",
+        "title": "Buddy Settings",
+        "width": 280,
+        "height": 420,
+        "visible": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "url": "tray-menu.html"
+      },
+      {
+        "label": "friend-template",
+        "title": "Friend",
+        "width": 160,
+        "height": 200,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "visible": false,
+        "url": "friend.html"
+      },
+      {
+        "label": "chat-template",
+        "title": "Chat",
+        "width": 320,
+        "height": 480,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": true,
+        "resizable": true,
+        "visible": false,
+        "url": "chat.html"
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "resources": ["resources/*"],
+    "icon": ["icons/icon.png"]
+  }
+}

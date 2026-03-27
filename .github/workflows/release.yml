@@ -1,0 +1,156 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      tag: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: get_version
+        run: echo "version=$(cat VERSION | tr -d '\n')" >> "$GITHUB_OUTPUT"
+
+  build-mac:
+    needs: version
+    uses: ./.github/workflows/release-mac.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+      tag: ${{ needs.version.outputs.tag }}
+    secrets: inherit
+
+  build-windows:
+    needs: version
+    uses: ./.github/workflows/release-windows.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+      tag: ${{ needs.version.outputs.tag }}
+    secrets: inherit
+
+  release:
+    needs: [version, build-mac, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Mac artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mac-dmg
+          path: artifacts/mac
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-installer
+          path: artifacts/windows
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: Buddy ${{ needs.version.outputs.version }}
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/mac/Buddy.dmg
+            artifacts/windows/Buddy_${{ needs.version.outputs.version }}_x64-setup.exe
+            artifacts/windows/Buddy_${{ needs.version.outputs.version }}_x64-setup.nsis.zip
+            artifacts/windows/Buddy_${{ needs.version.outputs.version }}_x64-setup.nsis.zip.sig
+          generate_release_notes: true
+
+      - name: Update appcast.xml for Sparkle (macOS)
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+          TAG="${{ needs.version.outputs.tag }}"
+          DMG_SIZE=$(stat -c%s artifacts/mac/Buddy.dmg)
+          DATE=$(date -u +"%a, %d %b %Y %H:%M:%S +0000")
+          BUILD_NUM=$(echo "$VERSION" | tr -d '.')
+
+          SIGNATURE=""
+          if [ -f artifacts/mac/sparkle_signature.txt ]; then
+            SIGNATURE=$(cat artifacts/mac/sparkle_signature.txt)
+          fi
+
+          DMG_URL="https://github.com/Bridge-Innovation/Buddy/releases/download/${TAG}/Buddy.dmg"
+
+          # Insert new item after <channel><language>en</language>
+          NEW_ITEM=$(cat <<ITEM
+        <item>
+            <title>Version ${VERSION}</title>
+            <sparkle:version>${BUILD_NUM}</sparkle:version>
+            <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h2>Buddy v${VERSION}</h2>
+                <ul><li>See GitHub release notes for details.</li></ul>
+            ]]></description>
+            <pubDate>${DATE}</pubDate>
+            <enclosure
+                url="${DMG_URL}"
+                type="application/octet-stream"
+                sparkle:edSignature="${SIGNATURE}"
+                length="${DMG_SIZE}"
+            />
+        </item>
+ITEM
+          )
+
+          # Insert new item as the first <item> in the channel
+          sed -i "/<language>en<\/language>/a\\
+${NEW_ITEM}" website/appcast.xml
+
+      - name: Update website/update.json for Tauri updater (Windows)
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+          TAG="${{ needs.version.outputs.tag }}"
+          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          NSIS_URL="https://github.com/Bridge-Innovation/Buddy/releases/download/${TAG}/Buddy_${VERSION}_x64-setup.nsis.zip"
+
+          SIGNATURE=""
+          if [ -f artifacts/windows/Buddy_${VERSION}_x64-setup.nsis.zip.sig ]; then
+            SIGNATURE=$(cat artifacts/windows/Buddy_${VERSION}_x64-setup.nsis.zip.sig)
+          fi
+
+          cat > website/update.json << EOF
+          {
+            "version": "${VERSION}",
+            "notes": "Buddy ${VERSION}",
+            "pub_date": "${DATE}",
+            "platforms": {
+              "windows-x86_64": {
+                "signature": "${SIGNATURE}",
+                "url": "${NSIS_URL}"
+              }
+            }
+          }
+          EOF
+
+      - name: Commit updated website files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add website/appcast.xml website/update.json
+          git diff --cached --quiet || git commit -m "Update website for ${{ needs.version.outputs.tag }}"
+          git push origin HEAD:main || echo "Push skipped (tag-only workflow)"
+
+      - name: Deploy website to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          npm i -g vercel@latest
+          cd website
+          vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+          vercel build --prod --token=$VERCEL_TOKEN
+          vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN

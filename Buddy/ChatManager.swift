@@ -99,19 +99,27 @@ final class ChatManager {
         }
 
         for senderId in senderIds {
+            // Find the latest message text from this sender
+            let latestText = messages.last(where: { $0.fromUserId == senderId })?.message
+
+            var userInfo: [String: Any] = ["fromUserId": senderId]
+            if let text = latestText {
+                userInfo["messageText"] = text
+            }
+
             if chatPanels[senderId] != nil {
                 // Chat is open — notify the ChatView to pick up messages
                 NotificationCenter.default.post(
                     name: .buddyIncomingMessage,
                     object: nil,
-                    userInfo: ["fromUserId": senderId]
+                    userInfo: userInfo
                 )
             } else {
                 // Chat not open — show indicator on friend avatar
                 NotificationCenter.default.post(
                     name: .buddyIncomingMessage,
                     object: nil,
-                    userInfo: ["fromUserId": senderId]
+                    userInfo: userInfo
                 )
             }
         }

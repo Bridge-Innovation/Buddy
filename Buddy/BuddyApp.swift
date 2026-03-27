@@ -1,4 +1,5 @@
 import SwiftUI
+import Sparkle
 
 @main
 struct BuddyApp: App {
@@ -6,12 +7,33 @@ struct BuddyApp: App {
     @ObservedObject private var monitor = ActivityMonitor.shared
     @ObservedObject private var presence = PresenceManager.shared
     @State private var friendCodeInput = ""
+    @State private var isEditingName = false
+    @State private var owlSize: Int = AppSettings.owlSize
 
     var body: some Scene {
         MenuBarExtra {
             VStack(alignment: .leading, spacing: 4) {
                 Label(monitor.state.rawValue, systemImage: monitor.state.icon)
                     .font(.headline)
+
+                if isEditingName {
+                    HStack {
+                        TextField("Your name", text: $presence.displayName)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 140)
+                            .onSubmit { isEditingName = false }
+                        Button("Done") { isEditingName = false }
+                            .font(.caption)
+                    }
+                } else {
+                    HStack {
+                        Text(presence.displayName.isEmpty ? "No name set" : presence.displayName)
+                            .foregroundStyle(presence.displayName.isEmpty ? .secondary : .primary)
+                        Spacer()
+                        Button("Edit") { isEditingName = true }
+                            .font(.caption)
+                    }
+                }
 
                 if let code = presence.friendCode {
                     HStack {
@@ -30,6 +52,15 @@ struct BuddyApp: App {
                 Picker("Character", selection: $monitor.characterType) {
                     Text("Owl 1").tag(CharacterType.owl1)
                     Text("Owl 2").tag(CharacterType.owl2)
+                }
+
+                Picker("Owl Size", selection: $owlSize) {
+                    Text("Small").tag(0)
+                    Text("Medium").tag(1)
+                    Text("Large").tag(2)
+                }
+                .onChange(of: owlSize) { _, newValue in
+                    AppSettings.owlSize = newValue
                 }
 
                 Divider()
@@ -69,6 +100,10 @@ struct BuddyApp: App {
                 }
 
                 Divider()
+
+                Button("Check for Updates...") {
+                    appDelegate.checkForUpdates()
+                }
 
                 Button("Quit Buddy") {
                     NSApplication.shared.terminate(nil)

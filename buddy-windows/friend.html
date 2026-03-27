@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="/src/friend.css">
+</head>
+<body>
+  <div id="friend-app">
+    <div id="bubbles"></div>
+    <div id="owl-container">
+      <img id="owl-sprite" width="140" height="140" alt="Friend">
+      <div id="availability-dot" class="hidden"></div>
+    </div>
+    <div id="name-label">
+      <span id="name-text"></span>
+    </div>
+  </div>
+
+  <!-- Custom context menu -->
+  <div id="context-menu" class="hidden">
+    <button data-action="wave">Wave</button>
+    <button data-action="chat">Chat</button>
+    <button data-action="call">Call</button>
+    <hr>
+    <button data-action="remove" class="danger">Remove Friend</button>
+  </div>
+
+  <script type="module" src="/src/friend.ts"></script>
+</body>
+</html>

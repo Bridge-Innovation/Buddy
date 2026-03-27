@@ -1,6 +1,8 @@
 import AppKit
 import SwiftUI
 import Combine
+import Sparkle
+import UserNotifications
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -8,8 +10,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var friendPanelManager: FriendPanelManager!
     private var chatManager: ChatManager!
     private var eventCancellable: AnyCancellable?
+    private let updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Prompt for display name before starting presence (so registration uses it)
+        promptForDisplayNameIfNeeded()
+
         ActivityMonitor.shared.start()
         PresenceManager.shared.start()
 
@@ -85,37 +91,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             userInfo: ["fromUserId": event.fromUserId]
         )
 
-        // Find the friend's FaceTime contact
-        let friend = PresenceManager.shared.friends.first { $0.userId == event.fromUserId }
-        let friendContact = friend?.facetimeContact
+        // Show a system notification — FaceTime itself handles the actual incoming call UI
+        let content = UNMutableNotificationContent()
+        content.title = "Incoming Call"
+        content.body = "\(event.fromDisplayName) is calling you via FaceTime"
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: "call-\(event.id)", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
+    }
 
-        // Show accept/decline alert
-        let alert = NSAlert()
-        alert.messageText = "\(event.fromDisplayName) wants to call!"
-        alert.informativeText = "Accept the FaceTime call?"
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "Accept")
-        alert.addButton(withTitle: "Decline")
+    // MARK: - Updates
 
-        // Use the app icon or a friendly icon
-        if let icon = NSImage(systemSymbolName: "phone.circle.fill", accessibilityDescription: "Call") {
-            alert.icon = icon
-        }
-
-        let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
-            // Open FaceTime to the friend
-            if let contact = friendContact, !contact.isEmpty,
-               let url = URL(string: "facetime://\(contact)") {
-                NSWorkspace.shared.open(url)
-            } else {
-                // Fallback: just open FaceTime app
-                NSWorkspace.shared.open(URL(string: "facetime://")!)
-            }
-        }
+    func checkForUpdates() {
+        updaterController.checkForUpdates(nil)
     }
 
     // MARK: - One-time FaceTime contact prompt
+
+    private func promptForDisplayNameIfNeeded() {
+        let presence = PresenceManager.shared
+        guard presence.displayName.isEmpty else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "What should your friends see you as?"
+        alert.informativeText = "This name appears under your owl on your friends' desktops."
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Skip")
+
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        input.placeholderString = "Your name"
+        alert.accessoryView = input
+
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            let name = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !name.isEmpty {
+                presence.displayName = name
+            }
+        }
+    }
 
     private func promptForFacetimeContactIfNeeded() {
         let presence = PresenceManager.shared
