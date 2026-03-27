@@ -3,6 +3,9 @@ name: Build & Release Windows
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -42,6 +45,10 @@ jobs:
         working-directory: buddy-windows
         run: npx tauri build
 
+      - name: List built artifacts
+        shell: bash
+        run: ls -la buddy-windows/src-tauri/target/release/bundle/nsis/ 2>/dev/null || echo "No NSIS output found"
+
       - name: Upload installer to GitHub Release
         shell: bash
         env:
@@ -49,12 +56,15 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="v${VERSION}"
-          EXE="buddy-windows/src-tauri/target/release/bundle/nsis/Buddy_${VERSION}_x64-setup.exe"
-          ZIP="buddy-windows/src-tauri/target/release/bundle/nsis/Buddy_${VERSION}_x64-setup.nsis.zip"
+          NSIS_DIR="buddy-windows/src-tauri/target/release/bundle/nsis"
 
-          # Create release if it doesn't exist, or upload to existing
+          # Create release if it doesn't exist
           gh release view "$TAG" 2>/dev/null || gh release create "$TAG" --title "Buddy $TAG" --notes "Buddy $TAG for Windows"
 
-          # Upload artifacts
-          gh release upload "$TAG" "$EXE" --clobber || true
-          gh release upload "$TAG" "$ZIP" --clobber || true
+          # Upload all .exe and .zip files from the NSIS output
+          for f in "$NSIS_DIR"/*.exe "$NSIS_DIR"/*.zip; do
+            if [ -f "$f" ]; then
+              echo "Uploading: $f"
+              gh release upload "$TAG" "$f" --clobber || true
+            fi
+          done
