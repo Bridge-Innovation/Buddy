@@ -35,9 +35,14 @@ final class ChatManager {
     }
 
     private func openChat(with friendId: String) {
-        // If already open, bring to front
+        // If already open, bring to front and clear unread
         if let existing = chatPanels[friendId] {
             existing.orderFront(nil)
+            // Re-post to clear unread indicator on the avatar
+            NotificationCenter.default.post(
+                name: .buddyOpenChat, object: nil,
+                userInfo: ["friendId": friendId]
+            )
             return
         }
 
@@ -92,30 +97,27 @@ final class ChatManager {
     }
 
     private func handleIncomingMessages(_ messages: [ChatMessage]) {
-        // For each sender, either route to open chat or post notification for avatar indicator
         var senderIds = Set<String>()
         for msg in messages {
             senderIds.insert(msg.fromUserId)
         }
 
         for senderId in senderIds {
-            // Find the latest message text from this sender
             let latestText = messages.last(where: { $0.fromUserId == senderId })?.message
 
-            var userInfo: [String: Any] = ["fromUserId": senderId]
-            if let text = latestText {
-                userInfo["messageText"] = text
-            }
-
             if chatPanels[senderId] != nil {
-                // Chat is open — notify the ChatView to pick up messages
+                // Chat is already open — route message to ChatView only, no avatar indicator
                 NotificationCenter.default.post(
                     name: .buddyIncomingMessage,
                     object: nil,
-                    userInfo: userInfo
+                    userInfo: ["fromUserId": senderId, "chatOpen": true]
                 )
             } else {
-                // Chat not open — show indicator on friend avatar
+                // Chat not open — show speech bubble on friend avatar
+                var userInfo: [String: Any] = ["fromUserId": senderId]
+                if let text = latestText {
+                    userInfo["messageText"] = text
+                }
                 NotificationCenter.default.post(
                     name: .buddyIncomingMessage,
                     object: nil,

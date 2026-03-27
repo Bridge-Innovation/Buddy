@@ -26,6 +26,7 @@ const contextMenu = document.getElementById('context-menu')!;
 let currentState = activityState;
 let currentAvailable = isAvailable;
 let hasUnreadMessage = false;
+let hasMissedCall = false;
 let chatBubbleTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // Sprite paths — use the resource path pattern
@@ -151,43 +152,38 @@ function showIndicatorBubble(emoji: string, x: number, y: number, duration = 300
 }
 
 function showChatBubble(text: string) {
-  // Remove existing chat bubbles
-  bubblesContainer.querySelectorAll('.chat-bubble').forEach(el => {
-    el.remove();
-  });
-
+  // Remove existing chat/speech bubbles
+  bubblesContainer.querySelectorAll('.speech-bubble, .small-speech-bubble').forEach(el => el.remove());
   if (chatBubbleTimeout) { clearTimeout(chatBubbleTimeout); chatBubbleTimeout = null; }
 
   const el = document.createElement('div');
-  el.className = 'bubble chat-bubble';
-  el.textContent = text;
+  el.className = 'bubble speech-bubble';
+  el.innerHTML = `<span class="speech-text">${escapeHtml(text)}</span><div class="speech-tail"></div>`;
   el.style.left = '50%';
-  el.style.top = '10px';
+  el.style.top = '5px';
   el.style.transform = 'translateX(-50%)';
   el.onclick = () => openChat();
   bubblesContainer.appendChild(el);
 
   hasUnreadMessage = true;
 
-  // After 5 seconds, collapse to small indicator
+  // After 20 seconds, collapse to small speech bubble indicator
   chatBubbleTimeout = setTimeout(() => {
     el.classList.add('fade-out');
     setTimeout(() => {
       el.remove();
-      // Show small speech bubble indicator
       showUnreadIndicator();
     }, 400);
-  }, 5000);
+  }, 20000);
 }
 
 function showUnreadIndicator() {
   if (!hasUnreadMessage) return;
-  // Check if already showing
-  if (bubblesContainer.querySelector('.unread-indicator')) return;
+  if (bubblesContainer.querySelector('.small-speech-bubble')) return;
 
   const el = document.createElement('div');
-  el.className = 'bubble indicator-bubble unread-indicator';
-  el.textContent = '\u{1F4AC}';
+  el.className = 'bubble small-speech-bubble';
+  el.innerHTML = `<span>\u{1F4AC}</span><div class="speech-tail-small"></div>`;
   el.style.left = '15px';
   el.style.top = '30px';
   el.style.cursor = 'pointer';
@@ -196,9 +192,26 @@ function showUnreadIndicator() {
   bubblesContainer.appendChild(el);
 }
 
+function showMissedCallIndicator() {
+  if (!hasMissedCall) return;
+  if (bubblesContainer.querySelector('.missed-call-indicator')) return;
+
+  const el = document.createElement('div');
+  el.className = 'bubble small-speech-bubble missed-call-indicator';
+  el.innerHTML = `<span>\u{1F4DE}</span><div class="speech-tail-small"></div>`;
+  el.style.right = '15px';
+  el.style.top = '30px';
+  bubblesContainer.appendChild(el);
+}
+
 function clearUnread() {
   hasUnreadMessage = false;
-  bubblesContainer.querySelectorAll('.unread-indicator').forEach(el => el.remove());
+  hasMissedCall = false;
+  bubblesContainer.querySelectorAll('.speech-bubble, .small-speech-bubble, .missed-call-indicator').forEach(el => el.remove());
+}
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // -- Actions --
@@ -324,7 +337,10 @@ listen<{ message: ChatMessage }>('buddy-message-received', (event) => {
 // Call received from this friend
 listen<{ fromUserId: string; fromDisplayName: string }>('buddy-call-received', (event) => {
   if (event.payload.fromUserId === friendId) {
-    showIndicatorBubble('\u{1F4DE}', 60, 25, 5000);
+    showIndicatorBubble('\u{1F4DE}', 60, 25, 3000);
+    hasMissedCall = true;
+    // After call bubble fades, show missed call indicator
+    setTimeout(() => showMissedCallIndicator(), 3500);
   }
 });
 
