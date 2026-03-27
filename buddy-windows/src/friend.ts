@@ -32,35 +32,35 @@ let chatBubbleTimeout: ReturnType<typeof setTimeout> | null = null;
 // Sprite paths — use the resource path pattern
 function spriteForState(state: string): string {
   switch (state) {
-    case 'idle': return '/resources/owl_active_half.png';
-    case 'asleep': return '/resources/owl_asleep_out.png';
-    default: return '/resources/owl_active_open.png';
+    case 'idle': return '/owls/owl_active_half.png';
+    case 'asleep': return '/owls/owl_asleep_out.png';
+    default: return '/owls/owl_active_open.png';
   }
 }
 
 // Blink frames for animation
 const blinkFrames: Record<string, string[]> = {
   active: [
-    '/resources/owl_active_open.png',
-    '/resources/owl_active_half.png',
-    '/resources/owl_active_closed.png',
-    '/resources/owl_active_half.png',
-    '/resources/owl_active_open.png',
+    '/owls/owl_active_open.png',
+    '/owls/owl_active_half.png',
+    '/owls/owl_active_closed.png',
+    '/owls/owl_active_half.png',
+    '/owls/owl_active_open.png',
   ],
-  idle: ['/resources/owl_active_half.png'],
+  idle: ['/owls/owl_active_half.png'],
   asleep: [
-    '/resources/owl_asleep_out.png',
-    '/resources/owl_asleep_in.png',
-    '/resources/owl_asleep_out.png',
+    '/owls/owl_asleep_out.png',
+    '/owls/owl_asleep_in.png',
+    '/owls/owl_asleep_out.png',
   ],
 };
 
 const waveFrames = [
-  '/resources/owl_wave_low.png',
-  '/resources/owl_wave_med.png',
-  '/resources/owl_wave_high.png',
-  '/resources/owl_wave_med.png',
-  '/resources/owl_wave_low.png',
+  '/owls/owl_wave_low.png',
+  '/owls/owl_wave_med.png',
+  '/owls/owl_wave_high.png',
+  '/owls/owl_wave_med.png',
+  '/owls/owl_wave_low.png',
 ];
 
 // Initialize display

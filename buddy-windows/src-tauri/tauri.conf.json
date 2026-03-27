@@ -65,7 +65,6 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
-    "resources": ["resources/*"],
     "icon": ["icons/icon.ico", "icons/icon.png"]
   }
 }

@@ -28,9 +28,9 @@ export interface CharacterTheme {
 
 function owlTheme(suffix: string): CharacterTheme {
   const s = suffix;
-  const open = `/resources/owl_active_open${s}.png`;
-  const half = `/resources/owl_active_half${s}.png`;
-  const closed = `/resources/owl_active_closed${s}.png`;
+  const open = `/owls/owl_active_open${s}.png`;
+  const half = `/owls/owl_active_half${s}.png`;
+  const closed = `/owls/owl_active_closed${s}.png`;
 
   return {
     blinkSequence: {
@@ -44,16 +44,16 @@ function owlTheme(suffix: string): CharacterTheme {
       closedImage: closed,
     },
     asleepBreathing: {
-      inhaleImage: `/resources/owl_asleep_in${s}.png`,
-      exhaleImage: `/resources/owl_asleep_out${s}.png`,
+      inhaleImage: `/owls/owl_asleep_in${s}.png`,
+      exhaleImage: `/owls/owl_asleep_out${s}.png`,
     },
     waveFrames: [
       open,
-      `/resources/owl_wave_low${s}.png`,
-      `/resources/owl_wave_med${s}.png`,
-      `/resources/owl_wave_high${s}.png`,
-      `/resources/owl_wave_med${s}.png`,
-      `/resources/owl_wave_low${s}.png`,
+      `/owls/owl_wave_low${s}.png`,
+      `/owls/owl_wave_med${s}.png`,
+      `/owls/owl_wave_high${s}.png`,
+      `/owls/owl_wave_med${s}.png`,
+      `/owls/owl_wave_low${s}.png`,
       open,
     ],
     availableImage: open,
