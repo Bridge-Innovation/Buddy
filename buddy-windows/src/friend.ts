@@ -381,11 +381,11 @@ listen<{ friend: FriendStatus }>(`buddy-friend-updated-${friendId}`, (event) => 
   nameText.textContent = f.displayName;
 });
 
-// Wave received from this friend
+// Wave received from this friend — play animation only (no emoji).
+// The emoji is shown locally when YOU wave at them (in doWave), matching macOS behavior.
 listen<{ fromUserId: string }>('buddy-wave-received', (event) => {
   if (event.payload.fromUserId === friendId) {
     playWaveAnimation();
-    showIndicatorBubble('\u{1F44B}', 90, 30);
   }
 });
 

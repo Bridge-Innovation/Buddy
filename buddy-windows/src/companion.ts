@@ -80,10 +80,8 @@ export async function initCompanion() {
     switchState(newState);
   }) as EventListener);
 
-  // Listen to incoming waves
-  presence.addEventListener(BuddyEvents.INCOMING_WAVE, () => {
-    playWave();
-  });
+  // Note: companion owl does NOT wave on incoming waves from friends.
+  // Only the friend's owl panel plays the wave animation (matching macOS behavior).
 
   // Listen for settings changes via storage events or polling
   // We'll poll settings every 2s for changes from the tray menu window
