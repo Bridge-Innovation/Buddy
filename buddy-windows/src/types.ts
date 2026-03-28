@@ -63,6 +63,28 @@ export interface GenericResponse {
   error?: string;
 }
 
+// Call link for multi-method calling
+export interface CallLink {
+  label: string;
+  url: string;
+}
+
+export function parseCallLinks(contactString: string | null | undefined): CallLink[] {
+  if (!contactString) return [];
+  // Try JSON array format
+  if (contactString.startsWith('[')) {
+    try { return JSON.parse(contactString) as CallLink[]; } catch {}
+  }
+  // Legacy: single string — auto-migrate
+  if (contactString.includes('@') || /^\+?\d/.test(contactString)) {
+    return [{ label: 'FaceTime', url: `facetime://${contactString}` }];
+  }
+  if (contactString.startsWith('https://wa.me')) {
+    return [{ label: 'WhatsApp', url: contactString }];
+  }
+  return [{ label: 'Call', url: contactString }];
+}
+
 // Event names matching NSNotification.Name equivalents
 export const BuddyEvents = {
   INCOMING_WAVE: 'buddyIncomingWave',

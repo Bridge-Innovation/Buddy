@@ -19,9 +19,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ActivityMonitor.shared.start()
         PresenceManager.shared.start()
 
-        // Prompt for FaceTime contact on first launch if not set
-        promptForFacetimeContactIfNeeded()
-
         companionPanel = CompanionPanel()
         companionPanel.orderFront(nil)
 
@@ -106,7 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updaterController.checkForUpdates(nil)
     }
 
-    // MARK: - One-time FaceTime contact prompt
+    // MARK: - One-time prompts
 
     private func promptForDisplayNameIfNeeded() {
         let presence = PresenceManager.shared
@@ -132,30 +129,4 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func promptForFacetimeContactIfNeeded() {
-        let presence = PresenceManager.shared
-        guard presence.facetimeContact.isEmpty else { return }
-
-        // Delay slightly so the app finishes launching first
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            let alert = NSAlert()
-            alert.messageText = "Set up FaceTime calling"
-            alert.informativeText = "Enter your Apple ID email or phone number so friends can call you. You can change this later in the menu bar."
-            alert.alertStyle = .informational
-            alert.addButton(withTitle: "Save")
-            alert.addButton(withTitle: "Skip")
-
-            let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
-            input.placeholderString = "email@icloud.com or +1234567890"
-            alert.accessoryView = input
-
-            let response = alert.runModal()
-            if response == .alertFirstButtonReturn {
-                let contact = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !contact.isEmpty {
-                    presence.facetimeContact = contact
-                }
-            }
-        }
-    }
 }

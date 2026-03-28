@@ -3,7 +3,8 @@
 
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { listen, emit } from '@tauri-apps/api/event';
-import type { FriendStatus, ChatMessage } from './types';
+import type { FriendStatus, ChatMessage, CallLink } from './types';
+import { parseCallLinks } from './types';
 
 // Enable dragging on the friend window
 let dragTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -240,21 +241,70 @@ function openChat() {
 }
 
 async function doCall() {
-  if (!facetimeContact) {
-    showToast('No call link set for this friend');
+  let links = parseCallLinks(facetimeContact);
+
+  // Filter out FaceTime on Windows
+  links = links.filter(l => !l.url.startsWith('facetime://'));
+
+  if (links.length === 0) {
+    showToast('No compatible call links for this friend');
     return;
   }
 
-  if (facetimeContact.startsWith('facetime://') || facetimeContact.includes('facetime.apple.com')) {
-    showToast('FaceTime is not available on Windows');
-  } else {
-    // Open the URL (Zoom, Google Meet, Discord, Skype, etc.)
+  if (links.length === 1) {
     const { open } = await import('@tauri-apps/plugin-shell');
-    await open(facetimeContact);
+    await open(links[0].url);
+  } else {
+    showCallPicker(links);
   }
 
-  // Notify the friend
   await emit('buddy-send-call', { toUserId: friendId });
+}
+
+function showCallPicker(links: CallLink[]) {
+  // Remove any existing picker
+  document.querySelector('.call-picker')?.remove();
+
+  const picker = document.createElement('div');
+  picker.className = 'call-picker';
+  picker.style.cssText = `
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(30,30,30,0.95); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+    padding: 8px; min-width: 160px; z-index: 200;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    pointer-events: auto;
+  `;
+
+  for (const link of links) {
+    const btn = document.createElement('button');
+    btn.textContent = link.label;
+    btn.style.cssText = `
+      display: block; width: 100%; padding: 8px 14px; border: none;
+      background: transparent; color: white; font-family: 'Nunito', sans-serif;
+      font-size: 14px; text-align: left; border-radius: 6px; cursor: pointer;
+    `;
+    btn.addEventListener('mouseenter', () => btn.style.background = 'rgba(255,255,255,0.1)');
+    btn.addEventListener('mouseleave', () => btn.style.background = 'transparent');
+    btn.addEventListener('click', async () => {
+      picker.remove();
+      const { open } = await import('@tauri-apps/plugin-shell');
+      await open(link.url);
+    });
+    picker.appendChild(btn);
+  }
+
+  document.body.appendChild(picker);
+
+  // Close picker on click outside
+  setTimeout(() => {
+    document.addEventListener('click', function handler(e) {
+      if (!picker.contains(e.target as Node)) {
+        picker.remove();
+        document.removeEventListener('click', handler);
+      }
+    });
+  }, 100);
 }
 
 async function doRemove() {

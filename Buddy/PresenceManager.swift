@@ -1,5 +1,12 @@
 import Foundation
 
+// MARK: - Call Links
+
+struct CallLink: Codable {
+    let label: String
+    let url: String
+}
+
 // MARK: - API Models
 
 struct FriendStatus: Codable, Identifiable {
@@ -408,6 +415,30 @@ final class PresenceManager: ObservableObject {
                 "facetimeContact": facetimeContact,
             ])
         }
+    }
+
+    // MARK: - Call link helpers
+
+    static func parseCallLinks(from contactString: String?) -> [CallLink] {
+        guard let str = contactString, !str.isEmpty else { return [] }
+        // Try JSON array format first
+        if str.hasPrefix("["), let data = str.data(using: .utf8),
+           let links = try? JSONDecoder().decode([CallLink].self, from: data) {
+            return links
+        }
+        // Legacy: single string — auto-migrate
+        if str.contains("@") || str.first?.isNumber == true || str.hasPrefix("+") {
+            return [CallLink(label: "FaceTime", url: "facetime://\(str)")]
+        }
+        if str.hasPrefix("https://wa.me") {
+            return [CallLink(label: "WhatsApp", url: str)]
+        }
+        return [CallLink(label: "Call", url: str)]
+    }
+
+    static func serializeCallLinks(_ links: [CallLink]) -> String {
+        guard let data = try? JSONEncoder().encode(links) else { return "" }
+        return String(data: data, encoding: .utf8) ?? ""
     }
 
     // MARK: - Networking

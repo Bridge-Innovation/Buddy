@@ -2,7 +2,7 @@
 // communicates with companion window via Tauri events (NOT its own PresenceManager)
 
 import { Settings } from './settings';
-import type { FriendStatus, BuddyState } from './types';
+import type { FriendStatus, BuddyState, CallLink } from './types';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { emit, listen } from '@tauri-apps/api/event';
 import { exit } from '@tauri-apps/plugin-process';
@@ -83,6 +83,9 @@ async function populateUI() {
     await settings.setOwlSize(Number(sizeSelect.value));
   });
 
+  // Call links management
+  await initCallLinks();
+
   // Add friend — tell the companion to do it (it has the PresenceManager)
   const addInput = document.getElementById('add-friend-input') as HTMLInputElement;
   const addBtn = document.getElementById('add-friend-btn') as HTMLButtonElement;
@@ -151,6 +154,63 @@ function renderFriends(friends: FriendStatus[]) {
     row.appendChild(dot);
     row.appendChild(name);
     row.appendChild(status);
+    list.appendChild(row);
+  }
+}
+
+async function initCallLinks() {
+  const links = await settings.getCallLinks();
+  renderCallLinks(links);
+
+  document.getElementById('add-call-link-btn')!.addEventListener('click', async () => {
+    const labelSelect = document.getElementById('call-link-label') as HTMLSelectElement;
+    const urlInput = document.getElementById('call-link-url') as HTMLInputElement;
+    const url = urlInput.value.trim();
+    if (!url) return;
+
+    const currentLinks = await settings.getCallLinks();
+    currentLinks.push({ label: labelSelect.value, url });
+    await settings.setCallLinks(currentLinks);
+    renderCallLinks(currentLinks);
+
+    // Sync to server via companion
+    await emit('tray-update-profile', { facetimeContact: JSON.stringify(currentLinks) });
+
+    urlInput.value = '';
+  });
+}
+
+function renderCallLinks(links: CallLink[]) {
+  const list = document.getElementById('call-links-list')!;
+  list.innerHTML = '';
+
+  for (let i = 0; i < links.length; i++) {
+    const row = document.createElement('div');
+    row.className = 'field-row';
+    row.style.justifyContent = 'space-between';
+
+    const info = document.createElement('span');
+    info.style.fontSize = '12px';
+    info.textContent = `${links[i].label}: ${links[i].url}`;
+    info.style.overflow = 'hidden';
+    info.style.textOverflow = 'ellipsis';
+    info.style.whiteSpace = 'nowrap';
+    info.style.flex = '1';
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'copy-btn';
+    delBtn.textContent = '\u00D7';
+    delBtn.style.marginLeft = '4px';
+    delBtn.addEventListener('click', async () => {
+      const currentLinks = await settings.getCallLinks();
+      currentLinks.splice(i, 1);
+      await settings.setCallLinks(currentLinks);
+      renderCallLinks(currentLinks);
+      await emit('tray-update-profile', { facetimeContact: JSON.stringify(currentLinks) });
+    });
+
+    row.appendChild(info);
+    row.appendChild(delBtn);
     list.appendChild(row);
   }
 }

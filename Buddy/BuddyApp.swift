@@ -9,6 +9,10 @@ struct BuddyApp: App {
     @State private var friendCodeInput = ""
     @State private var isEditingName = false
     @State private var owlSize: Int = AppSettings.owlSize
+    @State private var newCallLabel = "FaceTime"
+    @State private var newCallURL = ""
+
+    private let callLabelOptions = ["FaceTime", "WhatsApp", "Discord", "Zoom", "Google Meet", "Skype", "Other"]
 
     var body: some Scene {
         MenuBarExtra {
@@ -61,6 +65,53 @@ struct BuddyApp: App {
                 }
                 .onChange(of: owlSize) { _, newValue in
                     AppSettings.owlSize = newValue
+                }
+
+                Divider()
+
+                // Call links
+                Text("Call Links")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                let callLinks = PresenceManager.parseCallLinks(from: presence.facetimeContact)
+                ForEach(callLinks, id: \.url) { link in
+                    HStack {
+                        Text(link.label)
+                        Text(link.url)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        Spacer()
+                        Button("Remove") {
+                            var updated = callLinks.filter { $0.url != link.url }
+                            if updated.isEmpty {
+                                presence.facetimeContact = ""
+                            } else {
+                                presence.facetimeContact = PresenceManager.serializeCallLinks(updated)
+                            }
+                        }
+                        .font(.caption)
+                    }
+                }
+
+                HStack {
+                    Picker("", selection: $newCallLabel) {
+                        ForEach(callLabelOptions, id: \.self) { Text($0) }
+                    }
+                    .frame(width: 90)
+                    TextField("URL", text: $newCallURL)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 130)
+                    Button("Add") {
+                        let url = newCallURL.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !url.isEmpty else { return }
+                        var links = callLinks
+                        links.append(CallLink(label: newCallLabel, url: url))
+                        presence.facetimeContact = PresenceManager.serializeCallLinks(links)
+                        newCallURL = ""
+                    }
+                    .disabled(newCallURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
 
                 Divider()

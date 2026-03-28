@@ -1,6 +1,8 @@
 // Settings persistence via @tauri-apps/plugin-store — mirrors AppSettings.swift
 
 import { load, type Store } from '@tauri-apps/plugin-store';
+import type { CallLink } from './types';
+import { parseCallLinks } from './types';
 
 const STORE_FILE = 'buddy-settings.json';
 
@@ -98,6 +100,17 @@ export class Settings {
   async setWindowPosition(x: number, y: number) {
     await this.store?.set(Keys.windowPositionX, x);
     await this.store?.set(Keys.windowPositionY, y);
+  }
+
+  // -- Call links helpers --
+
+  async getCallLinks(): Promise<CallLink[]> {
+    const raw = await this.getFacetimeContact();
+    return parseCallLinks(raw);
+  }
+
+  async setCallLinks(links: CallLink[]) {
+    await this.setFacetimeContact(JSON.stringify(links));
   }
 
   // -- Owl scale helper matching macOS --

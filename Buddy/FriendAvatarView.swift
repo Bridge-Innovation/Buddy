@@ -136,14 +136,30 @@ struct FriendAvatarView: View {
                 userInfo: ["friendId": friend.userId]
             )
         }
-        Button("Call") {
-            // Immediately open FaceTime on the caller's machine
-            if let contact = friend.facetimeContact, !contact.isEmpty,
-               let url = URL(string: "facetime://\(contact)") {
-                NSWorkspace.shared.open(url)
+        callMenuItems
+    }
+
+    @ViewBuilder
+    private var callMenuItems: some View {
+        let links = PresenceManager.parseCallLinks(from: friend.facetimeContact)
+        if links.count > 1 {
+            Menu("Call") {
+                ForEach(links, id: \.url) { link in
+                    Button(link.label) {
+                        if let url = URL(string: link.url) {
+                            NSWorkspace.shared.open(url)
+                        }
+                        Task { await PresenceManager.shared.sendCallRequest(to: friend.userId) }
+                    }
+                }
             }
-            // Send a lightweight notification to the friend
-            Task { await PresenceManager.shared.sendCallRequest(to: friend.userId) }
+        } else if links.count == 1 {
+            Button("Call via \(links[0].label)") {
+                if let url = URL(string: links[0].url) {
+                    NSWorkspace.shared.open(url)
+                }
+                Task { await PresenceManager.shared.sendCallRequest(to: friend.userId) }
+            }
         }
     }
 
