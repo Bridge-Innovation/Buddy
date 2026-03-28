@@ -97,20 +97,48 @@ async function init() {
 }
 
 init().then(async () => {
+  const { emit } = await import('@tauri-apps/api/event');
+
   // Initialize companion UI (only in companion window)
   const { initCompanion } = await import('./companion');
   await initCompanion();
-
-  // Initialize system tray (from JS — fallback if Rust tray doesn't work)
-  try {
-    const { initTray } = await import('./tray');
-    await initTray();
-  } catch (err) {
-    console.warn('[Buddy] Tray init failed (may be handled by Rust):', err);
-  }
 
   // Initialize friend panel manager (creates windows for online friends)
   const { FriendPanelManager } = await import('./friend-panel');
   const friendPanels = new FriendPanelManager(presence);
   friendPanels.start();
+
+  // -- Bridge tray-menu events to the single PresenceManager --
+
+  // When tray-menu requests current state, send it friends + status
+  listen('tray-request-state', async () => {
+    await emit('tray-friends-update', { friends: presence.friends });
+    await emit('tray-status-update', { state: idleMonitor.state });
+  });
+
+  // When friends list updates, forward to tray-menu
+  presence.addEventListener(BuddyEvents.FRIENDS_UPDATED, ((ev: CustomEvent) => {
+    emit('tray-friends-update', { friends: ev.detail.friends });
+  }) as EventListener);
+
+  // Forward idle state changes to tray-menu
+  idleMonitor.addEventListener(BuddyEvents.STATE_CHANGED, ((ev: CustomEvent) => {
+    emit('tray-status-update', { state: ev.detail.newState });
+  }) as EventListener);
+
+  // Handle tray-menu actions via the single PresenceManager
+  listen<{ friendCode: string }>('tray-add-friend', async (ev) => {
+    await presence.addFriend(ev.payload.friendCode);
+  });
+
+  listen<{ displayName: string }>('tray-update-profile', async (ev) => {
+    const contact = await settings.getFacetimeContact();
+    await presence.updateProfile(ev.payload.displayName, contact);
+  });
+
+  listen<{ isAvailable: boolean }>('tray-update-availability', async (ev) => {
+    idleMonitor.isAvailableToCowork = ev.payload.isAvailable;
+    await presence.sendStatus(idleMonitor.state, ev.payload.isAvailable, idleMonitor.characterType);
+  });
+
 }).catch(err => console.error('[Buddy] Init failed:', err));

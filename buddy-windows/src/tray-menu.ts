@@ -1,22 +1,13 @@
-// Tray menu settings popup — port of BuddyApp.swift MenuBarExtra
+// Tray menu settings popup — reads settings from shared store,
+// communicates with companion window via Tauri events (NOT its own PresenceManager)
 
 import { Settings } from './settings';
-import { PresenceManager } from './presence';
-import { IdleMonitor } from './idle-monitor';
-import { BuddyEvents, type FriendStatus, type BuddyState } from './types';
+import type { FriendStatus, BuddyState } from './types';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { emit, listen } from '@tauri-apps/api/event';
 import { exit } from '@tauri-apps/plugin-process';
 
 const settings = new Settings();
-const presence = new PresenceManager();
-const idleMonitor = new IdleMonitor();
-
-// State icons
-const stateIcons: Record<BuddyState, string> = {
-  active: '\u{1F7E2}',  // green circle
-  idle: '\u{1F7E1}',    // yellow circle
-  asleep: '\u{1F534}',  // red circle
-};
 
 const friendStateColors: Record<string, string> = {
   active: '#34c759',
@@ -27,46 +18,40 @@ const friendStateColors: Record<string, string> = {
 async function init() {
   await settings.init();
 
-  const userId = await settings.getUserId();
-  const friendCode = await settings.getFriendCode();
-  presence.start(userId, friendCode);
-  idleMonitor.start();
-
-  // Wire idle → presence
-  idleMonitor.addEventListener(BuddyEvents.STATE_CHANGED, ((ev: CustomEvent) => {
-    const { newState } = ev.detail;
-    presence.sendStatus(newState, idleMonitor.isAvailableToCowork, idleMonitor.characterType);
-    updateStatusDisplay(newState);
-  }) as EventListener);
-
-  // Populate UI
   await populateUI();
 
-  // Update friends list on changes
-  presence.addEventListener(BuddyEvents.FRIENDS_UPDATED, ((ev: CustomEvent) => {
-    renderFriends(ev.detail.friends as FriendStatus[]);
-  }) as EventListener);
+  // Listen for friends list updates from the companion window
+  await listen<{ friends: FriendStatus[] }>('tray-friends-update', (ev) => {
+    renderFriends(ev.payload.friends);
+  });
+
+  // Listen for status updates
+  await listen<{ state: BuddyState }>('tray-status-update', (ev) => {
+    updateStatusDisplay(ev.payload.state);
+  });
 
   // Close popup when it loses focus
   const win = getCurrentWindow();
   win.onFocusChanged(({ payload: focused }) => {
     if (!focused) win.hide();
   });
+
+  // Request current state from companion
+  await emit('tray-request-state', {});
 }
 
 async function populateUI() {
-  // Status
-  updateStatusDisplay(idleMonitor.state);
-
-  // Display name
+  // Display name — read from shared settings store
   const nameInput = document.getElementById('display-name') as HTMLInputElement;
   nameInput.value = await settings.getDisplayName();
   nameInput.addEventListener('change', async () => {
-    await settings.setDisplayName(nameInput.value);
-    await presence.updateProfile(nameInput.value, await settings.getFacetimeContact());
+    const name = nameInput.value.trim();
+    await settings.setDisplayName(name);
+    // Tell the companion to update the profile on the server
+    await emit('tray-update-profile', { displayName: name });
   });
 
-  // Friend code
+  // Friend code — read from shared settings store
   const codeEl = document.getElementById('friend-code')!;
   const code = await settings.getFriendCode();
   codeEl.textContent = code ?? '------';
@@ -80,8 +65,7 @@ async function populateUI() {
   availToggle.checked = await settings.getIsAvailableToCowork();
   availToggle.addEventListener('change', async () => {
     await settings.setIsAvailableToCowork(availToggle.checked);
-    idleMonitor.isAvailableToCowork = availToggle.checked;
-    presence.sendStatus(idleMonitor.state, availToggle.checked, idleMonitor.characterType);
+    await emit('tray-update-availability', { isAvailable: availToggle.checked });
   });
 
   // Character picker
@@ -90,7 +74,6 @@ async function populateUI() {
   charSelect.value = currentChar === 'owl2' ? 'owl2' : 'owl1';
   charSelect.addEventListener('change', async () => {
     await settings.setCharacterType(charSelect.value);
-    idleMonitor.characterType = charSelect.value;
   });
 
   // Owl size
@@ -100,23 +83,22 @@ async function populateUI() {
     await settings.setOwlSize(Number(sizeSelect.value));
   });
 
-  // Add friend
+  // Add friend — tell the companion to do it (it has the PresenceManager)
   const addInput = document.getElementById('add-friend-input') as HTMLInputElement;
   const addBtn = document.getElementById('add-friend-btn') as HTMLButtonElement;
   addInput.addEventListener('input', () => {
     addBtn.disabled = addInput.value.length !== 6;
   });
   addBtn.addEventListener('click', async () => {
-    const friendCodeVal = addInput.value;
+    const friendCode = addInput.value.trim();
     addInput.value = '';
     addBtn.disabled = true;
-    await presence.addFriend(friendCodeVal);
+    await emit('tray-add-friend', { friendCode });
   });
 
-  // Check for updates (placeholder)
+  // Check for updates
   document.getElementById('check-updates-btn')!.addEventListener('click', () => {
-    // Will integrate with tauri-plugin-updater later
-    console.log('[Buddy] Check for updates clicked');
+    console.log('[Buddy] Check for updates');
   });
 
   // Quit
@@ -124,15 +106,15 @@ async function populateUI() {
     await exit(0);
   });
 
-  // Initial friends load
-  const friends = await presence.getFriends();
-  renderFriends(friends);
+  // Status display
+  updateStatusDisplay('active');
 }
 
 function updateStatusDisplay(state: BuddyState) {
+  const icons: Record<string, string> = { active: '\u{1F7E2}', idle: '\u{1F7E1}', asleep: '\u{1F534}' };
   const statusIcon = document.getElementById('status-icon')!;
   const statusLabel = document.getElementById('status-label')!;
-  statusIcon.textContent = stateIcons[state] ?? stateIcons.active;
+  statusIcon.textContent = icons[state] ?? icons.active;
   statusLabel.textContent = state.charAt(0).toUpperCase() + state.slice(1);
 }
 

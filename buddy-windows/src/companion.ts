@@ -94,9 +94,19 @@ export async function initCompanion() {
   }, 2000);
 }
 
-function applyOwlScale(size: number) {
+async function applyOwlScale(size: number) {
   const scale = settings.owlScale(size);
   owlImg.style.transform = `scale(${scale})`;
+
+  // Resize the Tauri window to match the scaled owl
+  const baseW = 200, baseH = 220;
+  const newW = Math.round(baseW * scale);
+  const newH = Math.round(baseH * scale);
+  try {
+    const win = getCurrentWebviewWindow();
+    const { LogicalSize } = await import('@tauri-apps/api/dpi');
+    await win.setSize(new LogicalSize(newW, newH));
+  } catch {}
 }
 
 function updateAvailabilityDot(visible: boolean) {
