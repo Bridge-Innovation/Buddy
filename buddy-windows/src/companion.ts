@@ -307,7 +307,7 @@ function setupContextMenu(container: HTMLElement) {
         playWave();
         break;
       case 'quit': {
-        const { exit } = await import('@tauri-apps/api/process');
+        const { exit } = await import('@tauri-apps/plugin-process');
         await exit(0);
         break;
       }
