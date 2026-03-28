@@ -4,6 +4,7 @@
 import { getTheme, type CharacterTheme } from './theme';
 import { settings, idleMonitor, presence } from './main';
 import { BuddyEvents, type BuddyState } from './types';
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 
 const BLINK_FRAME_MS = 80;
 const WAVE_FRAME_MS = 120;
@@ -45,6 +46,14 @@ export async function initCompanion() {
 
   // Set initial frame
   owlImg.src = theme.blinkSequence.open;
+
+  // Enable window dragging on mousedown
+  const container = document.getElementById('companion-container')!;
+  container.addEventListener('mousedown', async (e) => {
+    if (e.button === 0) { // left click only
+      await getCurrentWebviewWindow().startDragging();
+    }
+  });
 
   // Start active blink loop
   startActiveMode();

@@ -2,16 +2,17 @@
 
 import { TrayIcon } from '@tauri-apps/api/tray';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { resolveResource } from '@tauri-apps/api/path';
+import { defaultWindowIcon } from '@tauri-apps/api/app';
 
 let trayMenuWindow: WebviewWindow | null = null;
 
 export async function initTray() {
-  const iconPath = await resolveResource('resources/owl_active_open.png');
+  // Use the app's default icon (icons/icon.png from tauri.conf.json)
+  const icon = await defaultWindowIcon();
 
   await TrayIcon.new({
     id: 'buddy-tray',
-    icon: iconPath,
+    icon: icon ?? undefined,
     tooltip: 'Buddy',
     action: async (event) => {
       if (event.type === 'Click') {
