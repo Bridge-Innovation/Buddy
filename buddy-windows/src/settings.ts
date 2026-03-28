@@ -51,7 +51,7 @@ export class Settings {
   }
 
   async getCharacterType(): Promise<string> {
-    return await this.store?.get<string>(Keys.characterType) ?? 'owl';
+    return await this.store?.get<string>(Keys.characterType) ?? 'owl1';
   }
 
   async getIsAvailableToCowork(): Promise<boolean> {

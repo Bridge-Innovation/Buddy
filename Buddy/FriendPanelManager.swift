@@ -9,7 +9,7 @@ final class FriendPanelManager {
 
     private var panelSize: CGSize {
         let scale = AppSettings.owlScale
-        return CGSize(width: 160 * scale, height: 200 * scale)
+        return CGSize(width: 180 * scale, height: 260 * scale)
     }
 
     func start() {

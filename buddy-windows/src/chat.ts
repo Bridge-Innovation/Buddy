@@ -2,6 +2,7 @@
 // Receives friend data via URL params, uses Tauri events for messaging
 
 import { listen, emit } from '@tauri-apps/api/event';
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { ChatMessage } from './types';
 
 // Parse friend info from URL params
@@ -121,6 +122,11 @@ listen<{ messages: ChatMessage[] }>(`buddy-chat-history-${friendId}`, (event) =>
 
 // Notify main window that chat is open (so it can clear unread, send history)
 emit('buddy-chat-opened', { friendId });
+
+// Close button
+document.getElementById('close-btn')!.addEventListener('click', async () => {
+  await getCurrentWebviewWindow().close();
+});
 
 // Focus the input
 messageInput.focus();

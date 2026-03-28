@@ -5,6 +5,19 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { listen, emit } from '@tauri-apps/api/event';
 import type { FriendStatus, ChatMessage } from './types';
 
+// Enable dragging on the friend window
+let dragTimeout: ReturnType<typeof setTimeout> | null = null;
+document.addEventListener('mousedown', (e) => {
+  if (e.button === 0 && !(e.target as HTMLElement).closest('#context-menu')) {
+    dragTimeout = setTimeout(async () => {
+      await getCurrentWebviewWindow().startDragging();
+    }, 150);
+  }
+});
+document.addEventListener('mouseup', () => {
+  if (dragTimeout) { clearTimeout(dragTimeout); dragTimeout = null; }
+});
+
 // Parse friend data from URL params
 const params = new URLSearchParams(window.location.search);
 const friendId = params.get('friendId') ?? '';

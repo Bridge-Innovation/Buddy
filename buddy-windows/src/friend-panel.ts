@@ -9,8 +9,8 @@ import type { FriendStatus, ChatMessage } from './types';
 import { BuddyEvents } from './types';
 import { PresenceManager } from './presence';
 
-const PANEL_WIDTH = 160;
-const PANEL_HEIGHT = 200;
+const PANEL_WIDTH = 180;
+const PANEL_HEIGHT = 260;
 const PANEL_SPACING = 20;
 const PANEL_BOTTOM_MARGIN = 20;
 const PANEL_RIGHT_MARGIN = 40;
@@ -32,10 +32,11 @@ export class FriendPanelManager {
       this.syncPanels(friends);
     }) as EventListener);
 
-    // Listen for incoming waves
-    this.presence.addEventListener(BuddyEvents.INCOMING_WAVE, ((ev: CustomEvent) => {
-      const { event } = ev.detail;
-      emit('buddy-wave-received', { fromUserId: event.fromUserId });
+    // Listen for incoming waves — only broadcast to the specific friend window
+    this.presence.addEventListener(BuddyEvents.FRIEND_WAVED, ((ev: CustomEvent) => {
+      const { fromUserId } = ev.detail;
+      // Only the friend window for this user should react
+      emit('buddy-wave-received', { fromUserId });
     }) as EventListener);
 
     // Listen for incoming messages — route to chat window or friend panel
@@ -141,6 +142,13 @@ export class FriendPanelManager {
     const pos = await this.positionForPanel(index);
     const label = `friend-${friend.userId.slice(0, 8)}`;
 
+    // Check if window already exists
+    const existing = await WebviewWindow.getByLabel(label);
+    if (existing) {
+      this.panels.set(friend.userId, existing);
+      return;
+    }
+
     // Build URL with friend data as query params
     const params = new URLSearchParams({
       friendId: friend.userId,
@@ -227,8 +235,9 @@ export class FriendPanelManager {
         minHeight: 300,
       });
 
-      chatWin.onCloseRequested(() => {
+      chatWin.onCloseRequested(async (event) => {
         this.chatWindows.delete(friendId);
+        // Don't prevent default — let the window actually close
       });
 
       this.chatWindows.set(friendId, chatWin);
