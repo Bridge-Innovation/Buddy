@@ -100,8 +100,24 @@ async function populateUI() {
   });
 
   // Check for updates
-  document.getElementById('check-updates-btn')!.addEventListener('click', () => {
-    console.log('[Buddy] Check for updates');
+  document.getElementById('check-updates-btn')!.addEventListener('click', async () => {
+    try {
+      const { check } = await import('@tauri-apps/plugin-updater');
+      const update = await check();
+      if (update) {
+        const confirm = window.confirm(`Buddy ${update.version} is available. Update now?`);
+        if (confirm) {
+          await update.downloadAndInstall();
+          const { relaunch } = await import('@tauri-apps/plugin-process');
+          await relaunch();
+        }
+      } else {
+        window.alert('You\'re on the latest version!');
+      }
+    } catch (err) {
+      console.error('[Buddy] Update check failed:', err);
+      window.alert('Could not check for updates.');
+    }
   });
 
   // Quit

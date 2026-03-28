@@ -32,32 +32,17 @@ html, body { background: transparent; overflow: hidden; user-select: none; }
   image-rendering: auto;
 }
 
-/* Green availability dot */
+/* Green availability dot — centered above the owl */
 #availability-dot {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 12px;
-  height: 12px;
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: #4ade80;
-  border: 2px solid rgba(0,0,0,0.2);
-  box-shadow: 0 0 6px rgba(74, 222, 128, 0.6);
-}
-
-/* Available glow behind owl */
-#owl-container.available::before {
-  content: '';
-  position: absolute;
-  inset: -8px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(74, 222, 128, 0.2) 0%, transparent 70%);
-  animation: glow-pulse 3s ease-in-out infinite;
-}
-
-@keyframes glow-pulse {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
+  background: #34c759;
+  box-shadow: 0 0 4px rgba(52, 199, 89, 0.6);
 }
 
 /* Name label pill */

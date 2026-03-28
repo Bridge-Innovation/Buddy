@@ -93,7 +93,7 @@ struct AvailableGlowView: View {
     @State private var dotOpacity: Double = 0.7
 
     var body: some View {
-        VStack {
+        VStack(spacing: 0) {
             Circle()
                 .fill(Color.green)
                 .frame(width: 10, height: 10)
@@ -107,8 +107,10 @@ struct AvailableGlowView: View {
                         dotOpacity = 1.0
                     }
                 }
+                .padding(.top, 8)
             Spacer()
         }
+        .frame(maxWidth: .infinity)
     }
 }
 

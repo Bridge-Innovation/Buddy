@@ -47,26 +47,17 @@ export async function initCompanion() {
   // Set initial frame
   owlImg.src = theme.blinkSequence.open;
 
-  // Enable window dragging — only start after a small hold to avoid fighting with clicks
+  // Enable window dragging — start immediately on mousedown
   const container = document.getElementById('companion-container')!;
-  let dragTimeout: ReturnType<typeof setTimeout> | null = null;
-
-  container.addEventListener('mousedown', (e) => {
-    if (e.button === 0) {
-      dragTimeout = setTimeout(async () => {
-        await getCurrentWebviewWindow().startDragging();
-      }, 150); // 150ms hold before drag starts
+  container.addEventListener('mousedown', async (e) => {
+    if (e.button === 0 && !(e.target as HTMLElement).closest('#companion-menu')) {
+      e.preventDefault();
+      await getCurrentWebviewWindow().startDragging();
     }
   });
 
-  container.addEventListener('mouseup', () => {
-    if (dragTimeout) { clearTimeout(dragTimeout); dragTimeout = null; }
-  });
-
-  // Prevent text selection and focus outline on rapid clicking
+  // Prevent text selection and focus outline
   container.addEventListener('selectstart', (e) => e.preventDefault());
-  container.style.userSelect = 'none';
-  container.style.webkitUserSelect = 'none';
 
   // Right-click context menu on companion owl
   setupContextMenu(container);

@@ -62,6 +62,12 @@
       }
     ]
   },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://getbuddy.vercel.app/update.json"],
+      "pubkey": ""
+    }
+  },
   "bundle": {
     "active": true,
     "targets": ["nsis"],

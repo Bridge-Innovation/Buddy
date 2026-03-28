@@ -25,6 +25,7 @@
     "core:path:default",
     "shell:allow-open",
     "store:default",
-    "process:default"
+    "process:default",
+    "updater:default"
   ]
 }

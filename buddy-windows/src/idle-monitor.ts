@@ -12,7 +12,7 @@ const DEBOUNCE_DELAY = 5_000; // 5 seconds
 export class IdleMonitor extends EventTarget {
   private _state: BuddyState = 'active';
   private _isAvailableToCowork = false;
-  private _characterType = 'owl';
+  private _characterType = 'owl1';
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
