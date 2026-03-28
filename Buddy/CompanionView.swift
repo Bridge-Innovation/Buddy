@@ -5,6 +5,7 @@ struct CompanionView: View {
     @State private var bounceScale: CGFloat = 1.0
     @State private var waveFrameImage: String?
     @State private var isWaving = false
+    @State private var currentOwlScale: CGFloat = AppSettings.owlScale
 
     private var theme: CharacterTheme { monitor.characterType.theme }
     private var isAvailable: Bool { monitor.isAvailableToCowork && monitor.state == .active }
@@ -41,11 +42,15 @@ struct CompanionView: View {
             }
         }
         .frame(width: 192, height: 192)
-        .scaleEffect(bounceScale * AppSettings.owlScale)
+        .scaleEffect(bounceScale * currentOwlScale)
         .animation(.easeInOut(duration: 0.8), value: monitor.state)
         .animation(.easeInOut(duration: 0.5), value: isAvailable)
         .onTapGesture(count: 2) { playBounce() }
         .onTapGesture(count: 1) { playBounce() }
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+            let newScale = AppSettings.owlScale
+            if newScale != currentOwlScale { currentOwlScale = newScale }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .buddyIncomingWave)) { _ in
             playWave()
         }

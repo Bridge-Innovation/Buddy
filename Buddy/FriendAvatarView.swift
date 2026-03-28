@@ -15,6 +15,7 @@ struct FriendAvatarView: View {
     @State private var hasMissedCall = false
     @State private var incomingMessageText: String?
     @State private var showFullChatBubble = false
+    @State private var currentOwlScale: CGFloat = AppSettings.owlScale
 
     private var isAvailable: Bool { friend.isAvailable && friend.state == .active }
 
@@ -52,7 +53,11 @@ struct FriendAvatarView: View {
                         .fill(Color.black.opacity(0.55))
                 )
         }
-        .scaleEffect(bounceScale * AppSettings.owlScale)
+        .scaleEffect(bounceScale * currentOwlScale)
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+            let newScale = AppSettings.owlScale
+            if newScale != currentOwlScale { currentOwlScale = newScale }
+        }
     }
 
     // MARK: - Avatar layers
