@@ -22,7 +22,14 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  user-select: none;
+  -webkit-user-select: none;
 }
+
+/* Prevent blue highlight / selection on any element */
+*:focus { outline: none !important; }
+::selection { background: transparent !important; }
+img { -webkit-user-drag: none; }
 
 /* Owl sprite */
 #owl-img {
