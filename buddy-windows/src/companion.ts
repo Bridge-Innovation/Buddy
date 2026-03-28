@@ -55,6 +55,9 @@ export async function initCompanion() {
     }
   });
 
+  // Right-click context menu on companion owl
+  setupContextMenu(container);
+
   // Start active blink loop
   startActiveMode();
 
@@ -231,4 +234,83 @@ function refreshFrame() {
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// -- Right-click context menu --
+
+function setupContextMenu(container: HTMLElement) {
+  // Create the menu element
+  const menu = document.createElement('div');
+  menu.id = 'companion-menu';
+  menu.style.cssText = `
+    position: fixed; display: none; z-index: 100;
+    background: rgba(30, 30, 30, 0.95); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+    padding: 4px; min-width: 160px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    font-family: 'Nunito', sans-serif;
+  `;
+
+  const items = [
+    { label: 'Settings', action: 'settings' },
+    { label: 'Wave', action: 'wave' },
+    { label: '---' },
+    { label: 'Quit Buddy', action: 'quit', danger: true },
+  ];
+
+  for (const item of items) {
+    if (item.label === '---') {
+      const hr = document.createElement('hr');
+      hr.style.cssText = 'border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 4px 0;';
+      menu.appendChild(hr);
+      continue;
+    }
+    const btn = document.createElement('button');
+    btn.textContent = item.label;
+    btn.dataset.action = item.action;
+    btn.style.cssText = `
+      display: block; width: 100%; padding: 6px 12px; border: none;
+      background: transparent; color: ${item.danger ? '#f87171' : 'white'};
+      font-family: inherit; font-size: 13px; text-align: left;
+      border-radius: 4px; cursor: pointer;
+    `;
+    btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(255,255,255,0.1)'; });
+    btn.addEventListener('mouseleave', () => { btn.style.background = 'transparent'; });
+    menu.appendChild(btn);
+  }
+
+  document.body.appendChild(menu);
+
+  container.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    menu.style.display = 'block';
+    menu.style.left = `${Math.min(e.clientX, window.innerWidth - 170)}px`;
+    menu.style.top = `${Math.min(e.clientY, window.innerHeight - 120)}px`;
+  });
+
+  document.addEventListener('click', () => { menu.style.display = 'none'; });
+
+  menu.addEventListener('click', async (e) => {
+    const target = e.target as HTMLElement;
+    const action = target.dataset.action;
+    menu.style.display = 'none';
+
+    switch (action) {
+      case 'settings': {
+        // Open or show the tray-menu settings window
+        const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+        const win = await WebviewWindow.getByLabel('tray-menu');
+        if (win) { await win.show(); await win.setFocus(); }
+        break;
+      }
+      case 'wave':
+        playWave();
+        break;
+      case 'quit': {
+        const { exit } = await import('@tauri-apps/api/process');
+        await exit(0);
+        break;
+      }
+    }
+  });
 }

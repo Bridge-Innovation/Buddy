@@ -1,7 +1,7 @@
 {
   "identifier": "default",
   "description": "Default capabilities for the Buddy app",
-  "windows": ["companion", "tray-menu", "friend-*", "chat-*"],
+  "windows": ["companion", "welcome", "tray-menu", "friend-*", "chat-*"],
   "permissions": [
     "core:default",
     "core:window:default",

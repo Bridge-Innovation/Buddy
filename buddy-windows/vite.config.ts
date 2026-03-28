@@ -9,6 +9,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, "index.html"),
+        welcome: resolve(__dirname, "welcome.html"),
         "tray-menu": resolve(__dirname, "tray-menu.html"),
         friend: resolve(__dirname, "friend.html"),
         chat: resolve(__dirname, "chat.html"),
