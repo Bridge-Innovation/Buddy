@@ -41,6 +41,8 @@ function renderMessage(msg: ChatMessage) {
   time.textContent = formatTime(msg.timestamp);
 
   const wrapper = document.createElement('div');
+  wrapper.style.display = 'inline-flex';
+  wrapper.style.flexDirection = 'column';
   wrapper.appendChild(bubble);
   wrapper.appendChild(time);
 
@@ -125,7 +127,7 @@ emit('buddy-chat-opened', { friendId });
 
 // Close button
 document.getElementById('close-btn')!.addEventListener('click', async () => {
-  await getCurrentWebviewWindow().close();
+  await getCurrentWebviewWindow().destroy();
 });
 
 // Focus the input

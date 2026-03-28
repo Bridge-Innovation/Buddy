@@ -6,6 +6,8 @@ import Combine
 final class FriendPanelManager {
     private var panels: [String: FriendPanel] = [:]
     private var cancellable: AnyCancellable?
+    private var hiddenFriends: Set<String> = []
+    private var previousOnlineFriends: Set<String> = []
 
     private var panelSize: CGSize {
         let scale = AppSettings.owlScale
@@ -18,6 +20,13 @@ final class FriendPanelManager {
             .sink { [weak self] friends in
                 self?.syncPanels(with: friends)
             }
+
+        NotificationCenter.default.addObserver(
+            forName: .buddyHideFriend, object: nil, queue: .main
+        ) { [weak self] notification in
+            guard let friendId = notification.userInfo?["friendId"] as? String else { return }
+            self?.hideFriend(friendId)
+        }
     }
 
     func stop() {
@@ -28,10 +37,34 @@ final class FriendPanelManager {
         panels.removeAll()
     }
 
+    func hideFriend(_ friendId: String) {
+        hiddenFriends.insert(friendId)
+        if let panel = panels[friendId] {
+            animateOut(panel) { [weak self] in
+                self?.panels.removeValue(forKey: friendId)
+            }
+        }
+    }
+
+    func showFriend(_ friendId: String) {
+        hiddenFriends.remove(friendId)
+        syncPanels(with: PresenceManager.shared.friends)
+    }
+
+    var hiddenFriendIds: Set<String> { hiddenFriends }
+
     private func syncPanels(with friends: [FriendStatus]) {
         print("[FPM] syncPanels called with \(friends.count) friends, existing panels: \(panels.count)")
         let currentFriendIds = Set(friends.map(\.userId))
         let existingIds = Set(panels.keys)
+
+        // Unhide friends that went offline and came back online
+        for fId in hiddenFriends {
+            if !previousOnlineFriends.contains(fId) && currentFriendIds.contains(fId) {
+                hiddenFriends.remove(fId)
+            }
+        }
+        previousOnlineFriends = currentFriendIds
 
         for id in existingIds.subtracting(currentFriendIds) {
             if let panel = panels[id] {
@@ -41,7 +74,7 @@ final class FriendPanelManager {
             }
         }
 
-        for friend in friends where !existingIds.contains(friend.userId) {
+        for friend in friends where !existingIds.contains(friend.userId) && !hiddenFriends.contains(friend.userId) {
             print("[FPM] Creating panel for \(friend.displayName)")
             let panel = createFriendPanel(for: friend)
             panels[friend.userId] = panel

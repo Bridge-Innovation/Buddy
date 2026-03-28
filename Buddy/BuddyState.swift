@@ -14,6 +14,8 @@ extension Notification.Name {
     static let buddyFriendWaveReceived = Notification.Name("buddyFriendWaveReceived")
     /// Incoming call request (userInfo: ["fromUserId": String, "fromDisplayName": String, "facetimeContact": String])
     static let buddyIncomingCall = Notification.Name("buddyIncomingCall")
+    /// Hide a friend's panel (userInfo: ["friendId": String])
+    static let buddyHideFriend = Notification.Name("buddyHideFriend")
 }
 
 enum BuddyState: String, CaseIterable, Hashable {

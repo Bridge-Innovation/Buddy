@@ -240,11 +240,23 @@ function openChat() {
   emit('buddy-open-chat', { friendId, displayName: friendName });
 }
 
+function convertToAppProtocol(url: string): string {
+  // Convert WhatsApp web links to desktop app protocol
+  const waMatch = url.match(/^https:\/\/wa\.me\/(\+?\d+)/);
+  if (waMatch) {
+    return `whatsapp://send?phone=${waMatch[1]}`;
+  }
+  return url;
+}
+
 async function doCall() {
   let links = parseCallLinks(facetimeContact);
 
   // Filter out FaceTime on Windows
   links = links.filter(l => !l.url.startsWith('facetime://'));
+
+  // Convert web URLs to app protocols where possible
+  links = links.map(l => ({ ...l, url: convertToAppProtocol(l.url) }));
 
   if (links.length === 0) {
     showToast('No compatible call links for this friend');
@@ -307,6 +319,27 @@ function showCallPicker(links: CallLink[]) {
   }, 100);
 }
 
+function showCallBackOption() {
+  // Don't show if there's already a call-back button
+  if (bubblesContainer.querySelector('.call-back-btn')) return;
+
+  const el = document.createElement('div');
+  el.className = 'bubble call-back-btn';
+  el.innerHTML = `<span style="cursor:pointer;pointer-events:auto;font-size:11px;background:rgba(30,30,30,0.9);color:white;padding:4px 10px;border-radius:8px;font-family:'Nunito',sans-serif;">Call back</span>`;
+  el.style.cssText = 'position:absolute;left:50%;top:55px;transform:translateX(-50%);pointer-events:auto;cursor:pointer;';
+  el.onclick = () => {
+    el.remove();
+    hasMissedCall = false;
+    bubblesContainer.querySelectorAll('.missed-call-indicator').forEach(e => e.remove());
+    doCall();
+  };
+  bubblesContainer.appendChild(el);
+}
+
+async function doHide() {
+  await emit('buddy-hide-friend', { friendId });
+}
+
 async function doRemove() {
   await emit('buddy-remove-friend', { friendId });
 }
@@ -344,6 +377,7 @@ contextMenu.addEventListener('click', (e) => {
     case 'wave': doWave(); break;
     case 'chat': openChat(); break;
     case 'call': doCall(); break;
+    case 'hide': doHide(); break;
     case 'remove': doRemove(); break;
   }
 });
@@ -402,8 +436,11 @@ listen<{ fromUserId: string; fromDisplayName: string }>('buddy-call-received', (
   if (event.payload.fromUserId === friendId) {
     showIndicatorBubble('\u{1F4DE}', 60, 25, 3000);
     hasMissedCall = true;
-    // After call bubble fades, show missed call indicator
-    setTimeout(() => showMissedCallIndicator(), 3500);
+    // After call bubble fades, show "Call back" option
+    setTimeout(() => {
+      showMissedCallIndicator();
+      showCallBackOption();
+    }, 3500);
   }
 });
 

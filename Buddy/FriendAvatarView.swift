@@ -32,6 +32,16 @@ struct FriendAvatarView: View {
 
     private var mainContent: some View {
         VStack(spacing: 2) {
+            // Availability dot centered above the avatar
+            if isAvailable {
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 10, height: 10)
+                    .shadow(color: .green.opacity(0.6), radius: 3)
+            } else {
+                Color.clear.frame(width: 10, height: 10)
+            }
+
             avatarZStack
                 .frame(width: 140, height: 140)
                 .animation(.easeInOut(duration: 0.8), value: friend.state)
@@ -64,9 +74,6 @@ struct FriendAvatarView: View {
 
     private var avatarZStack: some View {
         ZStack {
-            if isAvailable {
-                AvailableGlowView()
-            }
             characterLayer
             overlayBubbles
         }
@@ -142,6 +149,12 @@ struct FriendAvatarView: View {
             )
         }
         callMenuItems
+        Button("Hide") {
+            NotificationCenter.default.post(
+                name: .buddyHideFriend, object: nil,
+                userInfo: ["friendId": friend.userId]
+            )
+        }
     }
 
     @ViewBuilder

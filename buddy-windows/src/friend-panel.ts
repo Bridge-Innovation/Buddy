@@ -20,6 +20,8 @@ export class FriendPanelManager {
   private chatWindows = new Map<string, WebviewWindow>();
   private presence: PresenceManager;
   private chatHistory = new Map<string, ChatMessage[]>();
+  private hiddenFriends = new Set<string>();
+  private previousOnlineFriends = new Set<string>();
 
   constructor(presence: PresenceManager) {
     this.presence = presence;
@@ -72,7 +74,37 @@ export class FriendPanelManager {
     });
 
     listen<{ friendId: string }>('buddy-remove-friend', async (event) => {
-      await this.presence.removeFriend(event.payload.friendId);
+      const fId = event.payload.friendId;
+      await this.presence.removeFriend(fId);
+      // Close the friend's panel
+      const panel = this.panels.get(fId);
+      if (panel) {
+        panel.close();
+        this.panels.delete(fId);
+      }
+      // Force a fresh friend list from the server
+      await this.presence.getFriends();
+    });
+
+    // Listen for hide-friend requests
+    listen<{ friendId: string }>('buddy-hide-friend', (event) => {
+      const fId = event.payload.friendId;
+      this.hiddenFriends.add(fId);
+      const panel = this.panels.get(fId);
+      if (panel) {
+        panel.close();
+        this.panels.delete(fId);
+      }
+    });
+
+    // Listen for show-friend requests (from tray menu)
+    listen<{ friendId: string }>('buddy-show-friend', (event) => {
+      const fId = event.payload.friendId;
+      this.hiddenFriends.delete(fId);
+      // Trigger a re-sync so the panel gets created
+      if (this.presence.friends.length > 0) {
+        this.syncPanels(this.presence.friends);
+      }
     });
 
     // Listen for chat open requests
@@ -113,28 +145,36 @@ export class FriendPanelManager {
     const currentFriendIds = new Set(friends.map(f => f.userId));
     const existingIds = new Set(this.panels.keys());
 
+    // Unhide friends that went offline and came back online
+    for (const fId of this.hiddenFriends) {
+      if (!this.previousOnlineFriends.has(fId) && currentFriendIds.has(fId)) {
+        // Friend reconnected — show them again
+        this.hiddenFriends.delete(fId);
+      }
+    }
+    this.previousOnlineFriends = new Set(currentFriendIds);
+
     // Remove panels for friends that went offline
     for (const id of existingIds) {
       if (!currentFriendIds.has(id)) {
         const panel = this.panels.get(id);
         if (panel) {
-          // Animate out would be nice but just close for now
           panel.close();
           this.panels.delete(id);
         }
       }
     }
 
-    // Create panels for new online friends
-    let index = 0;
+    // Create panels for new online friends (skip hidden)
     for (const friend of friends) {
+      if (this.hiddenFriends.has(friend.userId)) continue;
+
       if (!existingIds.has(friend.userId)) {
         await this.createFriendPanel(friend, this.panels.size);
       } else {
         // Update existing panel's friend data
         emit(`buddy-friend-updated-${friend.userId}`, { friend });
       }
-      index++;
     }
   }
 

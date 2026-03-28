@@ -88,10 +88,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             userInfo: ["fromUserId": event.fromUserId]
         )
 
-        // Show a system notification — FaceTime itself handles the actual incoming call UI
+        // Find the caller's friend data and their call links
+        let caller = PresenceManager.shared.friends.first { $0.userId == event.fromUserId }
+        let callLinks = PresenceManager.parseCallLinks(from: caller?.facetimeContact)
+
+        // Open the first available call link to call back
+        if let firstLink = callLinks.first, let url = URL(string: firstLink.url) {
+            NSWorkspace.shared.open(url)
+        }
+
+        // Show a system notification
         let content = UNMutableNotificationContent()
         content.title = "Incoming Call"
-        content.body = "\(event.fromDisplayName) is calling you via FaceTime"
+        let linkLabel = callLinks.first?.label ?? "FaceTime"
+        content.body = "\(event.fromDisplayName) is calling you via \(linkLabel)"
         content.sound = .default
         let request = UNNotificationRequest(identifier: "call-\(event.id)", content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)

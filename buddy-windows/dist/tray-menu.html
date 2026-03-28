@@ -214,10 +214,35 @@
       width: 100%;
       text-align: center;
     }
+
+    .toast {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(30,30,30,0.9);
+      color: white;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-family: 'Nunito', sans-serif;
+      animation: toast-in 0.3s ease, toast-out 0.3s ease 2.5s forwards;
+      z-index: 50;
+    }
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+    @keyframes toast-out {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
   </style>
-  <script type="module" crossorigin src="/assets/tray-menu-BjG0gSzm.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/settings-BSzFEN2G.js">
-  <link rel="modulepreload" crossorigin href="/assets/window-CA7tEpcz.js">
+  <script type="module" crossorigin src="/assets/tray-menu-yGGw5ilu.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/window-BhI5XSUd.js">
+  <link rel="modulepreload" crossorigin href="/assets/types-CiGDCj-A.js">
+  <link rel="modulepreload" crossorigin href="/assets/settings--WTGwpDr.js">
+  <link rel="modulepreload" crossorigin href="/assets/index-TnLqV511.js">
 </head>
 <body>
   <div class="popup">
@@ -268,6 +293,24 @@
         <option value="1">Medium</option>
         <option value="2">Large</option>
       </select>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Call Links -->
+    <div class="section-label">Call Links</div>
+    <div id="call-links-list"></div>
+    <div class="field-row" style="gap: 4px; flex-wrap: wrap;">
+      <select id="call-link-label">
+        <option value="WhatsApp">WhatsApp</option>
+        <option value="Discord">Discord</option>
+        <option value="Zoom">Zoom</option>
+        <option value="Google Meet">Google Meet</option>
+        <option value="Skype">Skype</option>
+        <option value="Other">Other</option>
+      </select>
+      <input type="text" id="call-link-url" placeholder="https://..." style="min-width: 0;">
+      <button class="btn" id="add-call-link-btn">Add</button>
     </div>
 
     <div class="divider"></div>

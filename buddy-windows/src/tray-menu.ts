@@ -105,18 +105,16 @@ async function populateUI() {
       const { check } = await import('@tauri-apps/plugin-updater');
       const update = await check();
       if (update) {
-        const confirm = window.confirm(`Buddy ${update.version} is available. Update now?`);
-        if (confirm) {
-          await update.downloadAndInstall();
-          const { relaunch } = await import('@tauri-apps/plugin-process');
-          await relaunch();
-        }
+        showNotification(`Buddy ${update.version} is available. Installing...`);
+        await update.downloadAndInstall();
+        const { relaunch } = await import('@tauri-apps/plugin-process');
+        await relaunch();
       } else {
-        window.alert('You\'re on the latest version!');
+        showNotification('You\'re on the latest version!');
       }
     } catch (err) {
       console.error('[Buddy] Update check failed:', err);
-      window.alert('Could not check for updates.');
+      showNotification('Could not check for updates.');
     }
   });
 
@@ -229,6 +227,14 @@ function renderCallLinks(links: CallLink[]) {
     row.appendChild(delBtn);
     list.appendChild(row);
   }
+}
+
+function showNotification(message: string) {
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
 }
 
 init().catch(err => console.error('[Buddy] Tray menu init failed:', err));

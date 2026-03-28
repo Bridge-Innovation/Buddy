@@ -96,19 +96,10 @@ export async function initCompanion() {
   }, 2000);
 }
 
-async function applyOwlScale(size: number) {
+function applyOwlScale(size: number) {
   const scale = settings.owlScale(size);
   owlImg.style.transform = `scale(${scale})`;
-
-  // Resize the Tauri window to match the scaled owl
-  const baseW = 200, baseH = 220;
-  const newW = Math.round(baseW * scale);
-  const newH = Math.round(baseH * scale);
-  try {
-    const win = getCurrentWebviewWindow();
-    const { LogicalSize } = await import('@tauri-apps/api/dpi');
-    await win.setSize(new LogicalSize(newW, newH));
-  } catch {}
+  owlImg.style.transformOrigin = 'center bottom';
 }
 
 function updateAvailabilityDot(visible: boolean) {
@@ -296,8 +287,12 @@ function setupContextMenu(container: HTMLElement) {
   container.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     menu.style.display = 'block';
-    menu.style.left = `${Math.min(e.clientX, window.innerWidth - 170)}px`;
-    menu.style.top = `${Math.min(e.clientY, window.innerHeight - 120)}px`;
+    // Measure actual menu size after display
+    const menuRect = menu.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.clientX, window.innerWidth - menuRect.width - 4));
+    const y = Math.max(0, Math.min(e.clientY, window.innerHeight - menuRect.height - 4));
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
   });
 
   document.addEventListener('click', () => { menu.style.display = 'none'; });

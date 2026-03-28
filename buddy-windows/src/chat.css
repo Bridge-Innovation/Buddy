@@ -75,13 +75,11 @@ html, body {
 
 .message-bubble {
   max-width: 80%;
+  width: fit-content;
   padding: 8px 12px;
   font-size: 14px;
   line-height: 1.4;
-  word-break: normal;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-  position: relative;
+  word-wrap: break-word;
 }
 
 .message-row.sent .message-bubble {

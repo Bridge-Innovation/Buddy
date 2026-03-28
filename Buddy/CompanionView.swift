@@ -11,37 +11,44 @@ struct CompanionView: View {
     private var isAvailable: Bool { monitor.isAvailableToCowork && monitor.state == .active }
 
     var body: some View {
-        ZStack {
-            // Pulsing green glow behind the character when available
+        VStack(spacing: 2) {
+            // Availability dot centered above the owl
             if isAvailable {
-                AvailableGlowView()
-            }
-
-            // Wave animation overlay — takes priority over all states
-            if let waveImage = waveFrameImage {
-                Image(waveImage)
-                    .resizable()
-                    .interpolation(.high)
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 192, height: 192)
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 10, height: 10)
+                    .shadow(color: .green.opacity(0.6), radius: 3)
             } else {
-                // State views layered — crossfade via opacity
-                ActiveStateView(theme: theme, isAvailable: isAvailable)
-                    .opacity(monitor.state == .active ? 1 : 0)
-
-                IdleStateView(theme: theme)
-                    .opacity(monitor.state == .idle ? 1 : 0)
-
-                ZStack {
-                    AsleepStateView(theme: theme)
-                    if monitor.state == .asleep {
-                        FloatingZsView()
-                    }
-                }
-                .opacity(monitor.state == .asleep ? 1 : 0)
+                Color.clear.frame(width: 10, height: 10)
             }
+
+            ZStack {
+                // Wave animation overlay — takes priority over all states
+                if let waveImage = waveFrameImage {
+                    Image(waveImage)
+                        .resizable()
+                        .interpolation(.high)
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 192, height: 192)
+                } else {
+                    // State views layered — crossfade via opacity
+                    ActiveStateView(theme: theme, isAvailable: isAvailable)
+                        .opacity(monitor.state == .active ? 1 : 0)
+
+                    IdleStateView(theme: theme)
+                        .opacity(monitor.state == .idle ? 1 : 0)
+
+                    ZStack {
+                        AsleepStateView(theme: theme)
+                        if monitor.state == .asleep {
+                            FloatingZsView()
+                        }
+                    }
+                    .opacity(monitor.state == .asleep ? 1 : 0)
+                }
+            }
+            .frame(width: 192, height: 192)
         }
-        .frame(width: 192, height: 192)
         .scaleEffect(bounceScale * currentOwlScale)
         .animation(.easeInOut(duration: 0.8), value: monitor.state)
         .animation(.easeInOut(duration: 0.5), value: isAvailable)
@@ -82,35 +89,6 @@ struct CompanionView: View {
             waveFrameImage = nil
             isWaving = false
         }
-    }
-}
-
-// MARK: - Active State (alert owl, normal blinking)
-
-// MARK: - Available Glow
-
-struct AvailableGlowView: View {
-    @State private var dotOpacity: Double = 0.7
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Circle()
-                .fill(Color.green)
-                .frame(width: 10, height: 10)
-                .shadow(color: .green.opacity(0.6), radius: 3)
-                .opacity(dotOpacity)
-                .onAppear {
-                    withAnimation(
-                        .easeInOut(duration: 2.0)
-                        .repeatForever(autoreverses: true)
-                    ) {
-                        dotOpacity = 1.0
-                    }
-                }
-                .padding(.top, 8)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
     }
 }
 
