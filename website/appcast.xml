@@ -4,6 +4,28 @@
         <title>Buddy Updates</title>
         <language>en</language>
         <item>
+            <title>Version 1.2.2</title>
+            <sparkle:version>5</sparkle:version>
+            <sparkle:shortVersionString>1.2.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <h2>Buddy v1.2.2</h2>
+                <ul>
+                    <li>Availability dot now centered above owl, scales with size</li>
+                    <li>Incoming calls auto-open caller's link (WhatsApp, etc.)</li>
+                    <li>Hide friend option in context menu</li>
+                    <li>Friend removal now properly syncs both sides</li>
+                </ul>
+            ]]></description>
+            <pubDate>Fri, 28 Mar 2026 16:00:00 +0000</pubDate>
+            <enclosure
+                url="https://github.com/Bridge-Innovation/Buddy/releases/latest/download/Buddy.dmg"
+                type="application/octet-stream"
+                sparkle:edSignature="sMnQ1zk/rWwSLRu2NbjWfENnouTF1FAfY3usa+zKbVDGFdBp0iC+HN4HQeHtqmmk8TITHrmzatwTFbdY7w8jAQ=="
+                length="2669148"
+            />
+        </item>
+        <item>
             <title>Version 1.2.1</title>
             <sparkle:version>4</sparkle:version>
             <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
